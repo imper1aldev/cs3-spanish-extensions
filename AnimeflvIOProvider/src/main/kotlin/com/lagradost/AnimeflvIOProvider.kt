@@ -23,51 +23,38 @@ class AnimeflvIOProvider : MainAPI() {
         TvType.Anime,
     )
 
+    override val mainPage = mainPageOf(
+        Pair("$mainUrl/popular?page=", "Populares actualizadas"),
+        Pair("$mainUrl/series?page=", "Series actualizadas"),
+        Pair("$mainUrl/peliculas?page=", "Peliculas actualizadas")
+    )
+
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val items = ArrayList<HomePageList>()
-        val urls = listOf(
-            Pair("$mainUrl/series", "Series actualizadas"),
-            Pair("$mainUrl/peliculas", "Peliculas actualizadas"),
-        )
-        items.add(
-            HomePageList(
-                "Estrenos",
-                app.get(mainUrl).document.select("div#owl-demo-premiere-movies .pull-left").map {
-                    val title = it.selectFirst("p")?.text() ?: ""
-                    AnimeSearchResponse(
-                        title,
-                        fixUrl(it.selectFirst("a")?.attr("href") ?: ""),
-                        this.name,
-                        TvType.Anime,
-                        it.selectFirst("img")?.attr("src"),
-                        it.selectFirst("span.year").toString().toIntOrNull(),
-                        EnumSet.of(DubStatus.Subbed),
-                    )
-                })
-        )
-        urls.apmap { (url, name) ->
-            val soup = app.get(url).document
-            val home = soup.select("div.item-pelicula").map {
-                val title = it.selectFirst(".item-detail p")?.text() ?: ""
-                val poster = it.selectFirst("figure img")?.attr("src")
-                AnimeSearchResponse(
-                    title,
-                    fixUrl(it.selectFirst("a")?.attr("href") ?: ""),
-                    this.name,
-                    TvType.Anime,
-                    poster,
-                    null,
-                    if (title.contains("Latino") || title.contains("Castellano")) EnumSet.of(
-                        DubStatus.Dubbed
-                    ) else EnumSet.of(DubStatus.Subbed),
-                )
-            }
 
-            items.add(HomePageList(name, home))
+        val soup = app.get(request.data + page).document
+        val hasNextPage = soup.select("div.butmore").any()
+
+        val home = soup.select("div.item-pelicula").map {
+            val title = it.selectFirst(".item-detail p")?.text() ?: ""
+            val poster = it.selectFirst("figure img")?.attr("src")
+            AnimeSearchResponse(
+                title,
+                fixUrl(it.selectFirst("a")?.attr("href") ?: ""),
+                this.name,
+                TvType.Anime,
+                poster,
+                null,
+                if (title.contains("Latino") || title.contains("Castellano")) EnumSet.of(
+                    DubStatus.Dubbed
+                ) else EnumSet.of(DubStatus.Subbed),
+            )
         }
 
+        items.add(HomePageList(name, home))
+
         if (items.size <= 0) throw ErrorLoadingException()
-        return HomePageResponse(items)
+        return HomePageResponse(items, hasNextPage)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
