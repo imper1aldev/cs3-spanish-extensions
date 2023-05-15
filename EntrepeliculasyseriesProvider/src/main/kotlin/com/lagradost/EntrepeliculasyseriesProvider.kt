@@ -1,6 +1,7 @@
 package com.lagradost
 
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 
@@ -10,6 +11,7 @@ class EntrepeliculasyseriesProvider : MainAPI() {
     override var lang = "es"
     override val hasMainPage = true
     override val hasChromecastSupport = true
+    private val interceptor = CloudflareKiller()
     override val hasDownloadSupport = true
     override val supportedTypes = setOf(
         TvType.Movie,
@@ -29,7 +31,7 @@ class EntrepeliculasyseriesProvider : MainAPI() {
     ): HomePageResponse {
         val url = request.data + page
 
-        val soup = app.get(url).document
+        val soup = app.get(url, interceptor = interceptor).document
         val home = soup.select("ul.list-movie li").map {
             val title = it.selectFirst("a.link-title h2")!!.text()
             val link = it.selectFirst("a")!!.attr("href")
@@ -49,7 +51,7 @@ class EntrepeliculasyseriesProvider : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/?s=${query}"
-        val document = app.get(url).document
+        val document = app.get(url, interceptor = interceptor).document
 
         return document.select("li.xxx.TPostMv").map {
             val title = it.selectFirst("h2.Title")!!.text()
@@ -82,7 +84,7 @@ class EntrepeliculasyseriesProvider : MainAPI() {
 
 
     override suspend fun load(url: String): LoadResponse? {
-        val soup = app.get(url, timeout = 120).document
+        val soup = app.get(url, timeout = 120, interceptor = interceptor).document
 
         val title = soup.selectFirst("h1.title-post")!!.text()
         val description = soup.selectFirst("p.text-content:nth-child(3)")?.text()?.trim()
@@ -141,9 +143,9 @@ class EntrepeliculasyseriesProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        app.get(data).document.select(".video ul.dropdown-menu li").apmap {
+        app.get(data, interceptor = interceptor).document.select(".video ul.dropdown-menu li").apmap {
             val servers = it.attr("data-link")
-            val doc = app.get(servers).document
+            val doc = app.get(servers, interceptor = interceptor).document
             doc.select("input").apmap {
                 val postkey = it.attr("value")
                 app.post(
@@ -166,7 +168,8 @@ class EntrepeliculasyseriesProvider : MainAPI() {
                     ),
                     //params = mapOf(Pair("h", postkey)),
                     data = mapOf(Pair("h", postkey)),
-                    allowRedirects = false
+                    allowRedirects = false,
+                    interceptor = interceptor
                 ).okhttpResponse.headers.values("location").apmap {
                     loadExtractor(it, data, subtitleCallback, callback)
                 }
