@@ -135,37 +135,42 @@ class JKAnimeProvider : MainAPI() {
         }
     }
 
+    data class EpsInfo (
+        @JsonProperty("number" ) var number : String? = null,
+        @JsonProperty("title"  ) var title  : String? = null,
+        @JsonProperty("image"  ) var image  : String? = null
+    )
+
     override suspend fun load(url: String): LoadResponse {
         val doc = app.get(url, timeout = 120).document
-        val poster = doc.selectFirst("div.col-lg-3 div.anime__details__pic.set-bg")!!.attr("data-setbg")
-        val title = doc.selectFirst("div.anime__details__text div.anime__details__title h3")!!.text()
-        val type = doc.selectFirst(".anime__details__text")?.text()
-        val description = doc.selectFirst("div.col-lg-9 div.anime__details__text p")!!.ownText()
-        var genres = emptyList<String>();
-        var status: ShowStatus? = null;
-        doc.select("div.row div.col-lg-6.col-md-6 ul li").forEach { animeData ->
-            val data = animeData.select("span").text()
-            if (data.contains("Genero")) {
-                genres = animeData.select("a").map { it.text() }
-            }
-            if (data.contains("Estado")) {
-                status = when (animeData.select("span").text()) {
-                    "En emisión" -> ShowStatus.Ongoing
-                    "Concluido" -> ShowStatus.Completed
-                    else -> null
-                }
-            }
+        val poster = doc.selectFirst(".set-bg")?.attr("data-setbg")
+        val title = doc.selectFirst(".anime__details__title > h3")?.text()
+        val description = doc.selectFirst(".anime__details__text > p")?.text()
+        val genres = doc.select("div.col-lg-6:nth-child(1) > ul:nth-child(1) > li:nth-child(2) > a")
+            .map { it.text() }
+        val status = when (doc.selectFirst("span.enemision")?.text()) {
+            "En emisión" -> ShowStatus.Ongoing
+            "En emision" -> ShowStatus.Ongoing
+            "Concluido" -> ShowStatus.Completed
+            else -> null
         }
-
-        val animeID = doc.select("div.anime__details__text div.anime__details__title div#guardar-anime.btn.btn-light.btn-sm.ml-2")
-            .attr("data-anime")
-        val animeeps = "$mainUrl/ajax/last_episode/$animeID/"
-        val jsoneps = app.get(animeeps).body.toString()
-        val lastepnum = jsoneps.substringAfter("number\":\"").substringBefore("\"").toIntOrNull() ?: 0
-
-        val episodes = (1..lastepnum).map {
-            val link = "${url.removeSuffix("/")}/$it"
-            Episode(link)
+        val type = doc.selectFirst("div.col-lg-6.col-md-6 ul li[rel=tipo]")?.text()
+        val animeID = doc.selectFirst("div.ml-2")?.attr("data-anime")?.toInt()
+        val episodes = ArrayList<Episode>()
+        val pags = doc.select("a.numbers").map { it.attr("href").substringAfter("#pag") }.toList()
+        pags.apmap { pagnum ->
+            val res = app.get("$mainUrl/ajax/pagination_episodes/$animeID/$pagnum/").text
+            val json = parseJson<ArrayList<EpsInfo>>(res)
+            json.apmap { info ->
+                val imagetest = !info.image.isNullOrBlank()
+                val image = if (imagetest) "https://cdn.jkdesu.com/assets/images/animes/video/image_thumb/${info.image}" else null
+                val link = "${url.removeSuffix("/")}/${info.number}"
+                val ep = Episode(
+                    link,
+                    posterUrl = image
+                )
+                episodes.add(ep)
+            }
         }
 
         return newAnimeLoadResponse(title!!, url, getType(type!!)) {
@@ -209,7 +214,6 @@ class JKAnimeProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = app.get(data).document
-
         document.select("div.col-lg-12.rounded.bg-servers.text-white.p-3.mt-2 a").forEach { it ->
             val serverId = it.attr("data-id")
             val scriptServers = document.selectFirst("script:containsData(var video = [];)")!!
