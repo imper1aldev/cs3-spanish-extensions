@@ -1,0 +1,391 @@
+[
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=animefenix.com&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 17633,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "AnimeMovie",
+            "OVA",
+            "Anime"
+        ],
+        "version": 1,
+        "internalName": "AnimefenixProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/AnimefenixProvider.cs3",
+        "name": "AnimefenixProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=animeflv.io&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 16164,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "AnimeMovie",
+            "Anime",
+            "OVA"
+        ],
+        "version": 1,
+        "internalName": "AnimeflvIOProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/AnimeflvIOProvider.cs3",
+        "name": "AnimeflvIOProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=www3.animeflv.net&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 15977,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "AnimeMovie",
+            "Anime",
+            "OVA"
+        ],
+        "version": 1,
+        "internalName": "AnimeflvnetProvider",
+        "description": "El mejor portal de anime online para latinoam\u00e9rica, encuentra animes cl\u00e1sicos, animes del momento, animes m\u00e1s populares y mucho m\u00e1s, todo en animeflv, tu fuente de anime diaria.",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/AnimeflvnetProvider.cs3",
+        "name": "AnimeflvnetProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=cinecalidad.lol&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 16002,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 1,
+        "internalName": "CinecalidadProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/CinecalidadProvider.cs3",
+        "name": "CinecalidadProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=cuevana3.me&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 18835,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "Anime",
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 1,
+        "internalName": "CuevanaProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/CuevanaProvider.cs3",
+        "name": "CuevanaProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=doramasyt.com&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 18236,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "Anime",
+            "OVA"
+        ],
+        "version": 1,
+        "internalName": "DoramasYTProvider",
+        "description": "Dramas coreanos, chinos, Tailandia, Japones, mira antes que nadie los \u00faltimos doramas online en emisi\u00f3n y finalizados en HD.",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/DoramasYTProvider.cs3",
+        "name": "DoramasYTProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=www.zonevipz.com&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 10991,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "TvSeries"
+        ],
+        "version": 1,
+        "internalName": "EnNovelasProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/EnNovelasProvider.cs3",
+        "name": "EnNovelasProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=entrepeliculasyseries.nu&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 12525,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 1,
+        "internalName": "EntrepeliculasyseriesProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/EntrepeliculasyseriesProvider.cs3",
+        "name": "EntrepeliculasyseriesProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=www23.estrenosdoramas.net&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 17377,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "AsianDrama",
+            "Movie",
+            "OVA"
+        ],
+        "version": 1,
+        "internalName": "EstrenosDoramasProvider",
+        "description": "mira antes que nadie los ultimos doramas online en emision y finalizados, aqui podras ver muchisimos doramas online y novelas coreanas",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/EstrenosDoramasProvider.cs3",
+        "name": "EstrenosDoramasProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=fanpelis.la&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 13663,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 1,
+        "internalName": "FanPelisProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/FanPelisProvider.cs3",
+        "name": "FanPelisProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=www.zonevipz.com&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 16013,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "Anime",
+            "AnimeMovie",
+            "OVA"
+        ],
+        "version": 1,
+        "internalName": "HentaiLAProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/HentaiLAProvider.cs3",
+        "name": "HentaiLAProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=github.com&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 15586,
+        "status": 1,
+        "authors": [
+            "Adippe"
+        ],
+        "tvTypes": [
+            "Live"
+        ],
+        "version": 1,
+        "internalName": "IptvorgProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/IptvorgProvider.cs3",
+        "name": "IptvorgProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=jkanime.net&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 25210,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "Anime",
+            "OVA"
+        ],
+        "version": 1,
+        "internalName": "JKAnimeProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/JKAnimeProvider.cs3",
+        "name": "JKAnimeProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=monoschinos2.com&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 16810,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "Anime",
+            "OVA"
+        ],
+        "version": 1,
+        "internalName": "MonoschinosProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/MonoschinosProvider.cs3",
+        "name": "MonoschinosProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=www.mundodonghua.com&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 18315,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "AnimeMovie",
+            "Anime"
+        ],
+        "version": 1,
+        "internalName": "MundoDonghuaProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/MundoDonghuaProvider.cs3",
+        "name": "MundoDonghuaProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=pelisflix.li&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 15332,
+        "status": 0,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 1,
+        "internalName": "PelisflixProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/PelisflixProvider.cs3",
+        "name": "PelisflixProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=pelisplushd.nz&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 16924,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie",
+            "AsianDrama",
+            "Anime"
+        ],
+        "version": 1,
+        "internalName": "PelisplusHDProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/PelisplusHDProvider.cs3",
+        "name": "PelisplusHDProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=pelisplus.icu&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 14532,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 1,
+        "internalName": "PelisplusProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/PelisplusProvider.cs3",
+        "name": "PelisplusProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=seriesflix.video&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 14674,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 1,
+        "internalName": "SeriesflixProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/SeriesflixProvider.cs3",
+        "name": "SeriesflixProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=crunchyroll.com&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/imper1aldev/cs3-spanish-extensions",
+        "fileSize": 45122,
+        "status": 1,
+        "language": "es",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "AnimeMovie",
+            "Anime",
+            "OVA"
+        ],
+        "version": 1,
+        "internalName": "YomirollProvider",
+        "url": "https://raw.githubusercontent.com/imper1aldev/cs3-spanish-extensions/builds/YomirollProvider.cs3",
+        "name": "YomirollProvider"
+    }
+]
