@@ -51,7 +51,7 @@ class AnimeflvIOProvider : MainAPI() {
             )
         }
 
-        items.add(HomePageList(name, home))
+        items.add(HomePageList(request.name, home))
 
         if (items.size <= 0) throw ErrorLoadingException()
         return HomePageResponse(items, hasNextPage)
