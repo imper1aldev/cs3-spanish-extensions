@@ -205,10 +205,15 @@ class PelisplusHDProvider : MainAPI() {
             val encryptedList = apiResponse.select("#PlayerDisplay div[class*=\"OptionsLangDisp\"] div[class*=\"ODDIV\"] div[class*=\"OD\"] li[data-r]")
             val decryptedList = apiResponse.select("#PlayerDisplay div[class*=\"OptionsLangDisp\"] div[class*=\"ODDIV\"] div[class*=\"OD\"] li:not([data-r])")
             encryptedList.forEach {
-                val url = base64Decode(it.attr("data-r"))
+                var url = base64Decode(it.attr("data-r"))
+                val serverName = it.select("span").text()
+                when (serverName.lowercase()) {
+                    "sbfast" -> { url = "https://sbfull.com/e/${url.substringAfter("/e/")}" }
+                }
                 loadExtractor(url, data, subtitleCallback, callback)
             }
             decryptedList.forEach {
+                val serverName = it.select("span").text()
                 val url = it.attr("onclick")
                     .substringAfter("go_to_player('")
                     .substringBefore("?cover_url=")
@@ -219,14 +224,21 @@ class PelisplusHDProvider : MainAPI() {
 
                 val decryptedUrls = fetchUrls(url);
                 if (decryptedUrls.any()) {
-                    decryptedUrls.map { realUrl ->
+                    decryptedUrls.map { decUrl ->
+                        var realUrl = decUrl
+                        when (serverName.lowercase()) {
+                            "sbfast" -> { realUrl = "https://sbfull.com/e/${realUrl.substringAfter("/e/")}" }
+                        }
                         loadExtractor(realUrl, data, subtitleCallback, callback)
                     }
                 }
                 else {
                     val apiPageSoup = app.get("$domainUrl/player/?id=$url").document
-                    val realUrl = apiPageSoup.selectFirst("iframe")?.attr("src")
-                    if (realUrl != null) loadExtractor(realUrl, data, subtitleCallback, callback)
+                    var realUrl = apiPageSoup.selectFirst("iframe")?.attr("src") ?: ""
+                    when (serverName.lowercase()) {
+                        "sbfast" -> { realUrl = "https://sbfull.com/e/${realUrl.substringAfter("/e/")}" }
+                    }
+                    if (realUrl.isNotEmpty()) loadExtractor(realUrl, data, subtitleCallback, callback)
                 }
             }
         }
