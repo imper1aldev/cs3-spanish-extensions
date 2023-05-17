@@ -147,8 +147,7 @@ class EnNovelasProvider : MainAPI() {
                             this.name,
                             url,
                             referer = "",
-                            quality = Qualities.P720.value,
-                            isM3u8 = false,
+                            quality = Qualities.P720.value
                         )
                     )
                 }
