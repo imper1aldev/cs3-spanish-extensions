@@ -11,6 +11,7 @@ import com.lagradost.cloudstream3.utils.loadExtractor
 import java.util.*
 
 class EnNovelasProvider : MainAPI() {
+
     override var mainUrl = "https://www.zonevipz.com"
     override var name = "EnNovelas"
     override var lang = "es"
@@ -23,6 +24,7 @@ class EnNovelasProvider : MainAPI() {
     )
 
     override val mainPage = mainPageOf(
+        Pair("$mainUrl/just_added.html", "Últimos episodios"),
         Pair("$mainUrl/?op=categories_all&per_page=60&page=", "Novelas Populares")
     )
 
@@ -36,19 +38,39 @@ class EnNovelasProvider : MainAPI() {
 
         val soup = app.get(request.data + page).document
         val hasNextPage = soup.select("#container section div.section-content div.paging a:last-of-type").any()
-        val home = soup.select("#container section.search-videos div.section-content div.row div div.col-xs-6 div.video-post").map {
-            val title = it.selectFirst("a p")?.text() ?: ""
-            val poster = it.select("a div.thumb").attr("style")
-                .substringAfter("background-image:url(").substringBefore(")")
-            AnimeSearchResponse(
-                title,
-                fixUrl(changeUrlFormat(it.select("a").attr("href"))),
-                this.name,
-                TvType.TvSeries,
-                poster,
-                null,
-                EnumSet.of(DubStatus.Dubbed)
-            )
+        val home: List<AnimeSearchResponse>
+        if (request.data.contains("just_added")) {
+            home = soup.select(".videobox").map {
+                val title = it.selectFirst("a:nth-child(2)")?.text() ?: ""
+                val poster = it.select("a.video200 div").attr("style")
+                    .substringAfter("background-image: url(\"").substringBefore("\")")
+                AnimeSearchResponse(
+                    title,
+                    fixUrl(changeUrlFormat(it.select("a.video200").attr("href"))),
+                    this.name,
+                    TvType.TvSeries,
+                    poster,
+                    null,
+                    EnumSet.of(DubStatus.Dubbed)
+                )
+            }
+        }
+        else
+        {
+            home = soup.select("#container section.search-videos div.section-content div.row div div.col-xs-6 div.video-post").map {
+                val title = it.selectFirst("a p")?.text() ?: ""
+                val poster = it.select("a div.thumb").attr("style")
+                    .substringAfter("background-image:url(").substringBefore(")")
+                AnimeSearchResponse(
+                    title,
+                    fixUrl(changeUrlFormat(it.select("a").attr("href"))),
+                    this.name,
+                    TvType.TvSeries,
+                    poster,
+                    null,
+                    EnumSet.of(DubStatus.Dubbed)
+                )
+            }
         }
 
         items.add(HomePageList(request.name, home))
@@ -78,73 +100,31 @@ class EnNovelasProvider : MainAPI() {
     override suspend fun load(url: String): LoadResponse? {
         // Gets the url returned from searching.
         val soup = app.get(url).document
-        val title = soup.selectFirst(".info-content h1")?.text()
-        val description = soup.selectFirst("span.sinopsis")?.text()?.trim()
-        val poster: String? = soup.selectFirst(".poster img")?.attr("src")
-        val episodes = soup.select(".item-season-episodes a").map { li ->
-            val href = fixUrl(li.selectFirst("a")?.attr("href") ?: "")
-            val name = li.selectFirst("a")?.text() ?: ""
-            Episode(
-                href, name,
+        val title = soup.selectFirst("#inwg h3 span.first-word")!!.text()
+        val description = soup.selectFirst("#inwg")!!.ownText()
+        val episodes = soup.select("#col3 div.videobox").map { element ->
+            val noEpisode = getNumberFromEpsString(
+                element.selectFirst("a:nth-child(2)")!!.text().substringAfter("Cap")
+                    .substringBefore("FIN").substringBefore("fin"),
             )
-        }.reversed()
+            val poster = element.select("a.video200 div").attr("style")
+                .substringAfter("background-image: url(\"").substringBefore("\")")
+            val href = element.selectFirst("a.video200")!!.attr("href")
 
-        val year = Regex("(\\d*)").find(soup.select(".info-half").text())
+            Episode(href, episode = noEpisode.toInt(), posterUrl = poster)
+        }
 
-        val tvType = if (url.contains("/pelicula/")) TvType.AnimeMovie else TvType.Anime
-        val genre = soup.select(".content-type-a a")
-            .map { it?.text()?.trim().toString().replace(", ", "") }
-        val duration = Regex("""(\d*)""").find(
-            soup.select("p.info-half:nth-child(4)").text()
-        )
-
-        return when (tvType) {
-            TvType.Anime -> {
-                return newAnimeLoadResponse(title ?: "", url, tvType) {
-                    japName = null
-                    engName = title
-                    posterUrl = poster
-                    this.year = null
-                    addEpisodes(DubStatus.Subbed, episodes)
-                    plot = description
-                    tags = genre
-
-                    showStatus = null
-                }
-            }
-            TvType.AnimeMovie -> {
-                MovieLoadResponse(
-                    title ?: "",
-                    url,
-                    this.name,
-                    tvType,
-                    url,
-                    poster,
-                    year.toString().toIntOrNull(),
-                    description,
-                    null,
-                    genre,
-                    duration.toString().toIntOrNull(),
-                )
-            }
-            else -> null
+        return newAnimeLoadResponse(title, url, TvType.TvSeries) {
+            posterUrl = null
+            addEpisodes(DubStatus.Subbed, episodes)
+            showStatus = ShowStatus.Completed
+            plot = description
         }
     }
 
-    data class MainJson(
-        @JsonProperty("source") val source: List<Source>,
-        @JsonProperty("source_bk") val sourceBk: String?,
-        @JsonProperty("track") val track: List<String>?,
-        @JsonProperty("advertising") val advertising: List<String>?,
-        @JsonProperty("linkiframe") val linkiframe: String?
-    )
-
-    data class Source(
-        @JsonProperty("file") val file: String,
-        @JsonProperty("label") val label: String,
-        @JsonProperty("default") val default: String,
-        @JsonProperty("type") val type: String
-    )
+    private fun getNumberFromEpsString(epsStr: String): String {
+        return epsStr.filter { it.isDigit() }
+    }
 
     override suspend fun loadLinks(
         data: String,
@@ -152,46 +132,11 @@ class EnNovelasProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        app.get(data).document.select("li.tab-video").apmap {
-            val url = fixUrl(it.attr("data-video"))
-            if (url.contains("animeid")) {
-                val ajaxurl = url.replace("streaming.php", "ajax.php")
-                val ajaxurltext = app.get(ajaxurl).text
-                val json = parseJson<MainJson>(ajaxurltext)
-                json.source.forEach { source ->
-                    if (source.file.contains("m3u8")) {
-                        generateM3u8(
-                            "Animeflv.io",
-                            source.file,
-                            "https://animeid.to",
-                            headers = mapOf("Referer" to "https://animeid.to")
-                        ).apmap {
-                            callback(
-                                ExtractorLink(
-                                    "Animeflv.io",
-                                    "Animeflv.io",
-                                    it.url,
-                                    "https://animeid.to",
-                                    getQualityFromName(it.quality.toString()),
-                                    it.url.contains("m3u8")
-                                )
-                            )
-                        }
-                    } else {
-                        callback(
-                            ExtractorLink(
-                                name,
-                                "$name ${source.label}",
-                                source.file,
-                                "https://animeid.to",
-                                Qualities.Unknown.value,
-                                isM3u8 = source.file.contains("m3u8")
-                            )
-                        )
-                    }
-                }
+        app.get(data).document.select("script").apmap { script ->
+            if (script.data().contains("window.hola_player({")) {
+                val url = script.data().substringAfter("sources: [{src: \"").substringBefore("\",")
+                loadExtractor(url, data, subtitleCallback, callback)
             }
-            loadExtractor(url, data, subtitleCallback, callback)
         }
         return true
     }
