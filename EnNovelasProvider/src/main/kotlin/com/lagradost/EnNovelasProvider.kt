@@ -36,17 +36,23 @@ class EnNovelasProvider : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val items = ArrayList<HomePageList>()
 
-        val soup = app.get(request.data + page).document
+        val soup = app.get(
+            when {
+                request.data.contains("just_added") -> request.data
+                else -> request.data + page
+            }
+        ).document
+
         val hasNextPage = soup.select("#container section div.section-content div.paging a:last-of-type").any()
         val home: List<AnimeSearchResponse>
         if (request.data.contains("just_added")) {
             home = soup.select(".videobox").map {
                 val title = it.selectFirst("a:nth-child(2)")?.text() ?: ""
                 val poster = it.select("a.video200 div").attr("style")
-                    .substringAfter("background-image: url(\"").substringBefore("\")")
+                    .substringAfter("url('").substringBefore("'")
                 AnimeSearchResponse(
                     title,
-                    fixUrl(changeUrlFormat(it.select("a.video200").attr("href"))),
+                    fixUrl(it.select("a.video200").attr("href")),
                     this.name,
                     TvType.TvSeries,
                     poster,
@@ -108,7 +114,7 @@ class EnNovelasProvider : MainAPI() {
                     .substringBefore("FIN").substringBefore("fin"),
             )
             val poster = element.select("a.video200 div").attr("style")
-                .substringAfter("background-image: url(\"").substringBefore("\")")
+                .substringAfter("url('").substringBefore("'")
             val href = element.selectFirst("a.video200")!!.attr("href")
 
             Episode(href, episode = noEpisode.toInt(), posterUrl = poster)
@@ -134,8 +140,19 @@ class EnNovelasProvider : MainAPI() {
     ): Boolean {
         app.get(data).document.select("script").apmap { script ->
             if (script.data().contains("window.hola_player({")) {
-                val url = script.data().substringAfter("sources: [{src: \"").substringBefore("\",")
-                loadExtractor(url, data, subtitleCallback, callback)
+                script.data().substringAfter("sources: [{src: \"").substringBefore("\",").let { url ->
+                    callback.invoke(
+                        ExtractorLink(
+                            this.name,
+                            this.name,
+                            url,
+                            referer = "",
+                            quality = Qualities.P720.value,
+                            isM3u8 = false,
+                        )
+                    )
+                }
+                //loadExtractor(url, data, subtitleCallback, callback)
             }
         }
         return true
