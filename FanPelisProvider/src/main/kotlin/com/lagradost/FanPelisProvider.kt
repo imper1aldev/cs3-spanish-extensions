@@ -2,12 +2,14 @@ package com.lagradost
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.extractors.Slmaxed
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.M3u8Helper.Companion.generateM3u8
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.getQualityFromName
 import com.lagradost.cloudstream3.utils.loadExtractor
+import okhttp3.Headers
 import java.util.*
 
 class FanPelisProvider : MainAPI() {
@@ -121,8 +123,67 @@ class FanPelisProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         app.get(data).document.select(".movieplay iframe").apmap { iframe ->
-            val url = fixUrl(iframe.attr("src").ifEmpty { iframe.attr("data-src") })
-            loadExtractor(url, data, subtitleCallback, callback)
+            var embedUrl = fixUrl(iframe.attr("src").ifEmpty { iframe.attr("data-src") })
+            loadExtractor(embedUrl, data, subtitleCallback, callback)
+
+            if (embedUrl.contains("sbembed.com") || embedUrl.contains("sbembed1.com") || embedUrl.contains("sbplay.org") ||
+                embedUrl.contains("sbvideo.net") || embedUrl.contains("streamsb.net") || embedUrl.contains("sbplay.one") ||
+                embedUrl.contains("cloudemb.com") || embedUrl.contains("playersb.com") || embedUrl.contains("tubesb.com") ||
+                embedUrl.contains("sbplay1.com") || embedUrl.contains("embedsb.com") || embedUrl.contains("watchsb.com") ||
+                embedUrl.contains("sbplay2.com") || embedUrl.contains("japopav.tv") || embedUrl.contains("viewsb.com") ||
+                embedUrl.contains("sbfast") || embedUrl.contains("sbfull.com") || embedUrl.contains("javplaya.com") ||
+                embedUrl.contains("ssbstream.net") || embedUrl.contains("p1ayerjavseen.com") || embedUrl.contains("sbthe.com") ||
+                embedUrl.contains("vidmovie.xyz") || embedUrl.contains("sbspeed.com") || embedUrl.contains("streamsss.net") ||
+                embedUrl.contains("sblanh.com") || embedUrl.contains("sbbrisk.com") || embedUrl.contains("lvturbo.com")
+            ) {
+                embedUrl = "https://sbfull.com/e/${embedUrl.substringAfter("/e/")}"
+            }
+            if (embedUrl.contains("streamlare")) {
+                try {
+                    val id = embedUrl.substringAfter("/e/").substringBefore("?poster")
+                    app.post("https://slwatch.co/api/video/stream/get?id=$id").okhttpResponse.body.toString().let {
+                        val videoUrl = it.substringAfter("file\":\"").substringBefore("\"").ifEmpty {
+                            it.substringAfter("file=\"").substringBefore("\"")
+                        }.trim()
+                        val type = if (videoUrl.contains(".m3u8")) "HSL" else "MP4"
+                        val headers = Headers.Builder()
+                            .add("authority", videoUrl.substringBefore("/hls").substringBefore("/mp4"))
+                            .add("origin", "https://slwatch.co")
+                            .add("referer", "https://slwatch.co/e/" + embedUrl.substringAfter("/e/"))
+                            .add(
+                                "sec-ch-ua",
+                                "\"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"108\", \"Google Chrome\";v=\"108\"",
+                            )
+                            .add("sec-ch-ua-mobile", "?0")
+                            .add("sec-ch-ua-platform", "\"Windows\"")
+                            .add("sec-fetch-dest", "empty")
+                            .add("sec-fetch-mode", "cors")
+                            .add("sec-fetch-site", "cross-site")
+                            .add(
+                                "user-agent",
+                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/),108.0.0.0 Safari/537.36",
+                            )
+                            .add("Accept-Encoding", "gzip, deflate, br")
+                            .add("accept", "*/*")
+                            .add(
+                                "accept-language",
+                                "es-MX,es-419;q=0.9,es;q=0.8,en;q=0.7,zh-TW;q=0.6,zh-CN;q=0.5,zh;q=0.4",
+                            )
+                            .build()
+                        callback.invoke(
+                            ExtractorLink(
+                                this.name,
+                                this.name,
+                                videoUrl,
+                                referer = "https://slwatch.co/e/" + embedUrl.substringAfter("/e/"),
+                                quality = Qualities.Unknown.value,
+                                isM3u8 = type == "HSL",
+                                headers = headers.toMap()
+                            )
+                        )
+                    }
+                }catch (_:Exception) {}
+            }
         }
         return true
     }
