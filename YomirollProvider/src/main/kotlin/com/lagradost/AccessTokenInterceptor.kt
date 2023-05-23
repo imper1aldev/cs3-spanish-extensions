@@ -1,7 +1,8 @@
 package com.lagradost
 
 import android.net.Uri
-import com.fasterxml.jackson.databind.ObjectMapper
+ import com.lagradost.cloudstream3.utils.AppUtils.parseJson
+import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import okhttp3.Headers
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -93,15 +94,15 @@ class AccessTokenInterceptor(private val crUrl: String) : Interceptor {
             }
         }
         val response = client.newCall(getRequest()).execute()
-        val mapper = ObjectMapper()
-        val parsedJson = mapper.readValue(response.body.string(), AccessToken::class.java)
+        val parsedJson = parseJson<AccessToken>(response.body.string())
         //json.decodeFromString<AccessToken>(response.body.string())
+
 
         val getRequest = Request.Builder()
             .url("$crUrl/index/v2")
             .build() //GET("$crUrl/index/v2")
         val policy = client.newCall(newRequestWithAccessToken(getRequest, parsedJson)).execute()
-        val policyJson = mapper.readValue(policy.body.string(), Policy::class.java)
+        val policyJson = parseJson<Policy>(policy.body.string())
             //json.decodeFromString<Policy>(policy.body.string())
         val allTokens = AccessToken(
             parsedJson.access_token,

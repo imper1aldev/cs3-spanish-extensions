@@ -52,7 +52,7 @@ class YomirollProvider : MainAPI() {
         val url = request.data.replace("{start}", start)
         val position = request.data.toHttpUrl().queryParameter("start")?.toIntOrNull() ?: 0
 
-        val parsed = app.get(url, headers = getCrunchyrollToken()).parsed<AnimeResult>()
+        val parsed = app.get(url, interceptor = tokenInterceptor/*headers = getCrunchyrollToken()*/ ).parsed<AnimeResult>()
         val hasNextPage = position + 36 < parsed.total
 
         val home = parsed.data.map {
@@ -236,7 +236,7 @@ class YomirollProvider : MainAPI() {
         private const val PREF_USE_LOCAL_TOKEN_TITLE = "Use Local Token (Don't Spam this please!)"
     }
 
-    fun getCrunchyrollToken(): Map<String, String> {
+    private fun getCrunchyrollToken(): Map<String, String> {
         val client = app.baseClient.newBuilder()
             .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("cr-unblocker.us.to", 1080)))
             .build()

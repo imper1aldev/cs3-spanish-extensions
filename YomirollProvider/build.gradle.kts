@@ -23,5 +23,5 @@ cloudstream {
         "OVA"
     )
 
-    iconUrl = "https://www.google.com/s2/favicons?domain=fanpelis.la&sz=%size%"
+    iconUrl = "https://www.google.com/s2/favicons?domain=crunchyroll.com&sz=%size%"
 }
