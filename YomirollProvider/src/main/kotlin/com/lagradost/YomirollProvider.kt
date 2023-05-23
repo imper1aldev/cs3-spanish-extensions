@@ -2,11 +2,18 @@ package com.lagradost
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.loadExtractor
+import com.lagradost.nicehttp.requestCreator
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.Request
+import java.net.Authenticator
+import java.net.InetSocketAddress
+import java.net.PasswordAuthentication
+import java.net.Proxy
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -45,7 +52,7 @@ class YomirollProvider : MainAPI() {
         val url = request.data.replace("{start}", start)
         val position = request.data.toHttpUrl().queryParameter("start")?.toIntOrNull() ?: 0
 
-        val parsed = app.get(url, interceptor = tokenInterceptor).parsed<AnimeResult>()
+        val parsed = app.get(url, headers = getCrunchyrollToken()).parsed<AnimeResult>()
         val hasNextPage = position + 36 < parsed.total
 
         val home = parsed.data.map {
@@ -227,5 +234,41 @@ class YomirollProvider : MainAPI() {
 
         private const val PREF_USE_LOCAL_TOKEN_KEY = "preferred_local_Token"
         private const val PREF_USE_LOCAL_TOKEN_TITLE = "Use Local Token (Don't Spam this please!)"
+    }
+
+    fun getCrunchyrollToken(): Map<String, String> {
+        val client = app.baseClient.newBuilder()
+            .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress("cr-unblocker.us.to", 1080)))
+            .build()
+
+        Authenticator.setDefault(object : Authenticator() {
+            override fun getPasswordAuthentication(): PasswordAuthentication {
+                return PasswordAuthentication("crunblocker", "crunblocker".toCharArray())
+            }
+        })
+
+        val getRequest = Request.Builder()
+            .url("https://raw.githubusercontent.com/Samfun75/File-host/main/aniyomi/refreshToken.txt")
+            .build()
+        val refreshTokenResp = client.newCall(getRequest).execute()
+        val refreshToken = refreshTokenResp.body.string().replace("[\n\r]".toRegex(), "")
+
+        val request = requestCreator(
+            method = "POST",
+            url = "$crUrl/auth/v1/token",
+            headers = mapOf(
+                "User-Agent" to "Crunchyroll/3.26.1 Android/11 okhttp/4.9.2",
+                "Content-Type" to "application/x-www-form-urlencoded",
+                "Authorization" to "Basic a3ZvcGlzdXZ6Yy0teG96Y21kMXk6R21JSTExenVPVnRnTjdlSWZrSlpibzVuLTRHTlZ0cU8="
+            ),
+            data = mapOf(
+                "refresh_token" to refreshToken,
+                "grant_type" to "refresh_token",
+                "scope" to "offline_access"
+            )
+        )
+
+        val response = tryParseJson<CrunchyrollToken>(client.newCall(request).execute().body.string())
+        return mapOf("Authorization" to "${response?.tokenType} ${response?.accessToken}")
     }
 }

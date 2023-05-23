@@ -152,3 +152,11 @@ fun <T> List<T>.thirdLast(): T? {
     if (size < 3) return null
     return this[size - 3]
 }
+
+data class CrunchyrollToken(
+    @JsonProperty("access_token") val accessToken: String? = null,
+    @JsonProperty("expires_in") val expiresIn: Int? = null,
+    @JsonProperty("token_type") val tokenType: String? = null,
+    @JsonProperty("scope") val scope: String? = null,
+    @JsonProperty("country") val country: String? = null
+)
