@@ -31,6 +31,7 @@ data class LinkData(
 
 data class Images(
     val poster_tall: List<ArrayList<Image>>? = null,
+    val poster_wide: List<ArrayList<Image>>? = null,
 ) {
         data class Image(
         val width: Int,

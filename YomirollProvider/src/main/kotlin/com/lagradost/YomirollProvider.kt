@@ -152,9 +152,9 @@ class YomirollProvider : MainAPI() {
                     ?: info.movie_metadata?.subtitle_locales?.sortedBy { it.getLocale() }
                         ?.joinToString { it.getLocale() } ?: ""
                 )
-        val description = desc
+        val description = desc + "\n ${soup.toJson()}"
         val genres = info.series_metadata?.genres ?: info.movie_metadata?.genres ?: emptyList() //  soup.select(".mvic-info .mvici-left p a[rel=\"category tag\"]").map { it.text().trim() }
-        val posterImg = info.images.poster_tall?.getOrNull(0)?.thirdLast()?.source ?: info.images.poster_tall?.getOrNull(0)?.last()?.source  // externalOrInternalImg(soup.selectFirst("#mv-info .mvic-thumb img")!!.attr("src"))
+        val posterImg = info.images.poster_wide?.getOrNull(0)?.thirdLast()?.source ?: info.images.poster_wide?.getOrNull(0)?.last()?.source  // externalOrInternalImg(soup.selectFirst("#mv-info .mvic-thumb img")!!.attr("src"))
 
         val episodes = mutableListOf<Episode>()
         val type = if (info.type?.contains("series") == true) TvType.Anime else TvType.AnimeMovie
