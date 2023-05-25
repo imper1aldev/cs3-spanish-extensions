@@ -58,7 +58,7 @@ class YomirollProvider : MainAPI() {
         val home = parsed.data.map {
             AnimeSearchResponse(
                 it.title,
-                LinkData(it.id, it.type!!).toJson(),
+                "cr.com?type=${it.type}&id=${it.id}",
                 this.name,
                 TvType.Anime,
                 it.images.poster_tall?.getOrNull(0)?.thirdLast()?.source ?: it.images.poster_tall?.getOrNull(0)?.last()?.source,
@@ -102,14 +102,16 @@ class YomirollProvider : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse? {
         // Gets the url returned from searching.
-        val mediaId = parseJson<LinkData>("{" + url.substringAfter("{").substringBefore("}") + "}");
+        val mediaType = url.toHttpUrl().queryParameter("type")
+        val animeId = url.toHttpUrl().queryParameter("id")
 
         val soup = app.get(
-            if (mediaId.media_type == "series") {
-                "$crApiUrl/cms/series/${mediaId.id}?locale=en-US"
+            if (mediaType == "series") {
+                "$crApiUrl/cms/series/${animeId}?locale=en-US"
             } else {
-                "$crApiUrl/cms/movie_listings/${mediaId.id}?locale=en-US"
-            }
+                "$crApiUrl/cms/movie_listings/${animeId}?locale=en-US"
+            },
+            interceptor = tokenInterceptor
         ).parsed<AnimeResult>()
 
         val info = soup.data.first()
