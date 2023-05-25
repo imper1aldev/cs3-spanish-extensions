@@ -2,7 +2,9 @@ package com.lagradost
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.syncproviders.SyncIdName
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
+import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.Qualities
@@ -56,7 +58,7 @@ class YomirollProvider : MainAPI() {
         val home = parsed.data.map {
             AnimeSearchResponse(
                 it.title,
-                LinkData(it.id, it.type!!).toJsonString(),
+                LinkData(it.id, it.type!!).toJson(),
                 this.name,
                 TvType.Anime,
                 it.images.poster_tall?.getOrNull(0)?.thirdLast()?.source ?: it.images.poster_tall?.getOrNull(0)?.last()?.source,
@@ -68,11 +70,6 @@ class YomirollProvider : MainAPI() {
         items.add(HomePageList(request.name, home))
         if (items.size <= 0) throw ErrorLoadingException()
         return HomePageResponse(items, hasNextPage)
-    }
-
-    private fun LinkData.toJsonString(): String {
-        val mapper = ObjectMapper()
-        return mapper.writeValueAsString(this)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
@@ -105,7 +102,7 @@ class YomirollProvider : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse? {
         // Gets the url returned from searching.
-        val mediaId = parseJson<LinkData>(url);
+        val mediaId = parseJson<LinkData>("{" + url.substringAfter("{").substringBefore("}") + "}");
 
         val soup = app.get(
             if (mediaId.media_type == "series") {
