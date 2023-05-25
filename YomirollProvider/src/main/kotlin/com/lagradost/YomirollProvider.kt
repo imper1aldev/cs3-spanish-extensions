@@ -2,6 +2,7 @@ package com.lagradost
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.Qualities
@@ -16,7 +17,6 @@ import java.net.PasswordAuthentication
 import java.net.Proxy
 import java.text.SimpleDateFormat
 import java.util.*
-
 
 class YomirollProvider : MainAPI() {
 
@@ -39,12 +39,10 @@ class YomirollProvider : MainAPI() {
         TvType.OVA
     )
 
-
     override val mainPage = mainPageOf(
         Pair("$crApiUrl/discover/browse?{start}n=36&sort_by=popularity&locale=en-US", "Animes populares"),
         Pair("$crApiUrl/discover/browse?{start}n=36&sort_by=newly_added&locale=en-US", "Nuevos animes"),
     )
-
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val items = ArrayList<HomePageList>()
@@ -52,7 +50,7 @@ class YomirollProvider : MainAPI() {
         val url = request.data.replace("{start}", start)
         val position = request.data.toHttpUrl().queryParameter("start")?.toIntOrNull() ?: 0
 
-        val parsed = app.get(url, interceptor = tokenInterceptor/*headers = getCrunchyrollToken()*/ ).parsed<AnimeResult>()
+        val parsed = app.get(url, interceptor = tokenInterceptor).parsed<AnimeResult>()
         val hasNextPage = position + 36 < parsed.total
 
         val home = parsed.data.map {
@@ -107,13 +105,61 @@ class YomirollProvider : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse? {
         // Gets the url returned from searching.
-        val soup = app.get(url).document
-        val title = soup.selectFirst(".mvic-desc h3[itemprop=\"name\"]")?.text() ?: ""
-        val description = soup.selectFirst(".mvic-desc .desc p")!!.text().removeSurrounding("\"")
-        val genres = soup.select(".mvic-info .mvici-left p a[rel=\"category tag\"]").map { it.text().trim() }
-        val posterImg = externalOrInternalImg(soup.selectFirst("#mv-info .mvic-thumb img")!!.attr("src"))
+        val mediaId = parseJson<LinkData>(url);
+
+        val soup = app.get(
+            if (mediaId.media_type == "series") {
+                "$crApiUrl/cms/series/${mediaId.id}?locale=en-US"
+            } else {
+                "$crApiUrl/cms/movie_listings/${mediaId.id}?locale=en-US"
+            }
+        ).parsed<AnimeResult>()
+
+        val info = soup.data.first()
+
+        val title = info.title
+        var desc = info.description + "\n"
+        desc += "\nLanguage:" +
+                (
+                        if (info.series_metadata?.subtitle_locales?.any() == true ||
+                            info.movie_metadata?.subtitle_locales?.any() == true ||
+                            info.series_metadata?.is_subbed == true
+                        ) {
+                            " Sub"
+                        } else {
+                            ""
+                        }
+                        ) +
+                (
+                        if ((info.series_metadata?.audio_locales?.size ?: 0) > 1 ||
+                            info.movie_metadata?.is_dubbed == true
+                        ) {
+                            " Dub"
+                        } else {
+                            ""
+                        }
+                        )
+        desc += "\nMaturity Ratings: " +
+                ( info.series_metadata?.maturity_ratings?.joinToString()
+                    ?: info.movie_metadata?.maturity_ratings?.joinToString() ?: "")
+        desc += if (info.series_metadata?.is_simulcast == true) "\nSimulcast" else ""
+        desc += "\n\nAudio: " + (
+                info.series_metadata?.audio_locales?.sortedBy { it.getLocale() }
+                    ?.joinToString { it.getLocale() } ?: ""
+                )
+        desc += "\n\nSubs: " + (
+                info.series_metadata?.subtitle_locales?.sortedBy { it.getLocale() }
+                    ?.joinToString { it.getLocale() }
+                    ?: info.movie_metadata?.subtitle_locales?.sortedBy { it.getLocale() }
+                        ?.joinToString { it.getLocale() } ?: ""
+                )
+        val description = desc
+        val genres = info.series_metadata?.genres ?: info.movie_metadata?.genres ?: emptyList() //  soup.select(".mvic-info .mvici-left p a[rel=\"category tag\"]").map { it.text().trim() }
+        val posterImg = info.images.poster_tall?.getOrNull(0)?.thirdLast()?.source ?: info.images.poster_tall?.getOrNull(0)?.last()?.source  // externalOrInternalImg(soup.selectFirst("#mv-info .mvic-thumb img")!!.attr("src"))
+
         val episodes = mutableListOf<Episode>()
-        val type = if (url.contains("/series/")) TvType.TvSeries else TvType.Movie
+        val type = if (info.type?.contains("series") == true) TvType.Anime else TvType.AnimeMovie
+        /*val type = if (url.contains("/series/")) TvType.TvSeries else TvType.Movie
         if (type == TvType.Movie) {
              episodes.add(Episode(url))
         } else {
@@ -124,16 +170,48 @@ class YomirollProvider : MainAPI() {
                     episodes.add(Episode(ep.attr("href"), episode = noEpisode, season = noSeason))
                 }
             }
-        }
+        }*/
 
         return newAnimeLoadResponse(title, url, type) {
             posterUrl = posterImg
-            addEpisodes(DubStatus.Subbed, episodes)
+            addEpisodes(DubStatus.None, episodes)
             showStatus = ShowStatus.Completed
             plot = description
             tags = genres
         }
     }
+
+    private fun String.getLocale(): String {
+        return locale.firstOrNull { it.first == this }?.second ?: ""
+    }
+
+    // Add new locales to the bottom so it doesn't mess with pref indexes
+    private val locale = arrayOf(
+        Pair("ar-ME", "Arabic"),
+        Pair("ar-SA", "Arabic (Saudi Arabia)"),
+        Pair("de-DE", "German"),
+        Pair("en-US", "English"),
+        Pair("en-IN", "English (India)"),
+        Pair("es-419", "Spanish (América Latina)"),
+        Pair("es-ES", "Spanish (España)"),
+        Pair("es-LA", "Spanish (América Latina)"),
+        Pair("fr-FR", "French"),
+        Pair("ja-JP", "Japanese"),
+        Pair("hi-IN", "Hindi"),
+        Pair("it-IT", "Italian"),
+        Pair("ko-KR", "Korean"),
+        Pair("pt-BR", "Português (Brasil)"),
+        Pair("pt-PT", "Português (Portugal)"),
+        Pair("pl-PL", "Polish"),
+        Pair("ru-RU", "Russian"),
+        Pair("tr-TR", "Turkish"),
+        Pair("uk-UK", "Ukrainian"),
+        Pair("he-IL", "Hebrew"),
+        Pair("ro-RO", "Romanian"),
+        Pair("sv-SE", "Swedish"),
+        Pair("zh-CN", "Chinese (PRC)"),
+        Pair("zh-HK", "Chinese (Hong Kong)"),
+    )
 
     override suspend fun loadLinks(
         data: String,
