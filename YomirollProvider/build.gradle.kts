@@ -1,6 +1,9 @@
 // use an integer for version numbers
 version = 1
 
+dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0")
+}
 
 cloudstream {
     language = "es"

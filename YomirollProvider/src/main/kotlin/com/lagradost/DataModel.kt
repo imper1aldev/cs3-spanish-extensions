@@ -1,6 +1,9 @@
 package com.lagradost
 
+import android.net.Uri
 import com.fasterxml.jackson.annotation.JsonProperty
+import kotlinx.serialization.json.JsonObject
+import okhttp3.Headers
 
 data class AccessToken(
     val access_token: String,
@@ -129,7 +132,7 @@ data class EpisodeData(
     val ids: List<Pair<String, String>>,
 )
 
-/*data class VideoStreams(
+data class VideoStreams(
     val streams: Stream? = null,
     val subtitles: JsonObject? = null,
     val audio_locale: String? = null,
@@ -137,7 +140,7 @@ data class EpisodeData(
         data class Stream(
         val adaptive_hls: JsonObject,
     )
-}*/
+}
 
 data class HlsLinks(
     val hardsub_locale: String,
@@ -161,3 +164,33 @@ data class CrunchyrollToken(
     @JsonProperty("scope") val scope: String? = null,
     @JsonProperty("country") val country: String? = null
 )
+
+data class Track(val url: String, val lang: String)
+
+data class Video(
+    val url: String = "",
+    val quality: String = "",
+    var videoUrl: String? = null,
+    @Transient var uri: Uri? = null, // Deprecated but can't be deleted due to extensions
+    val headers: Headers? = null,
+    // "url", "language-label-2", "url2", "language-label-2"
+    val subtitleTracks: List<Track> = emptyList(),
+    val audioTracks: List<Track> = emptyList(),
+){
+    constructor(
+        url: String,
+        quality: String,
+        videoUrl: String?,
+        headers: Headers? = null,
+        subtitleTracks: List<Track> = emptyList(),
+        audioTracks: List<Track> = emptyList(),
+    ) : this(url, quality, videoUrl, null, headers, subtitleTracks, audioTracks)
+
+    constructor(
+        url: String,
+        quality: String,
+        videoUrl: String?,
+        uri: Uri?,
+        headers: Headers? = null,
+    ) : this(url, quality, videoUrl, uri, headers, emptyList(), emptyList())
+}

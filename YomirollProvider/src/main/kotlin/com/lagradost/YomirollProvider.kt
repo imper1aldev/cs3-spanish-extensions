@@ -1,12 +1,12 @@
 package com.lagradost
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import android.net.Uri
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.syncproviders.SyncIdName
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.M3u8Helper
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.loadExtractor
 import com.lagradost.nicehttp.requestCreator
@@ -24,6 +24,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.serialization.json.jsonObject
 
 class YomirollProvider : MainAPI() {
 
@@ -39,6 +40,17 @@ class YomirollProvider : MainAPI() {
     override val hasDownloadSupport = true
 
     private val tokenInterceptor by lazy { AccessTokenInterceptor(crUrl) }
+
+    private val df by lazy { DecimalFormat("0.#") }
+    private fun String?.isNumeric() = this?.toDoubleOrNull() != null
+    private fun parseDate(dateStr: String): Long {
+        return runCatching { DateFormatter.parse(dateStr)?.time }.getOrNull() ?: 0L
+    }
+
+    private fun <A, B> Iterable<A>.parallelMap(f: suspend (A) -> B): List<B> =
+        runBlocking {
+            map { async(Dispatchers.Default) { f(it) } }.awaitAll()
+        }
 
     override val supportedTypes = setOf(
         TvType.Anime,
@@ -63,7 +75,7 @@ class YomirollProvider : MainAPI() {
         val home = parsed.data.map {
             AnimeSearchResponse(
                 it.title,
-                "cr.com?anime=${it.toJson()}",
+                "?anime=${it.toJson()}",
                 this.name,
                 TvType.Anime,
                 it.images.poster_tall?.getOrNull(0)?.thirdLast()?.source ?: it.images.poster_tall?.getOrNull(0)?.last()?.source,
@@ -96,19 +108,6 @@ class YomirollProvider : MainAPI() {
             )
         }
     }
-
-    private fun externalOrInternalImg(url: String): String {
-        return if (url.contains("https")) url else "$mainUrl/$url"
-    }
-
-    private fun getNumberFromString(epsStr: String): String {
-        return epsStr.filter { it.isDigit() }.ifEmpty { "0" }
-    }
-
-    private fun <A, B> Iterable<A>.parallelMap(f: suspend (A) -> B): List<B> =
-        runBlocking {
-            map { async(Dispatchers.Default) { f(it) } }.awaitAll()
-        }
 
     override suspend fun load(url: String): LoadResponse? {
         // Gets the url returned from searching.
@@ -169,13 +168,16 @@ class YomirollProvider : MainAPI() {
                         getEpisodes(seasonData)
                     }.getOrNull()
                 }.filterNotNull().flatten()
-            }.reversed()
+            }
         }
         else {
             seasons.data.mapIndexed { index, movie ->
-                Episode(EpisodeData(listOf(Pair(movie.id, ""))).toJson(), episode = (index + 1), date = movie.date?.let(::parseDate) ?: 0L)
+                Episode(
+                    EpisodeData(listOf(Pair(movie.id, ""))).toJson(),
+                    episode = (index + 1),
+                    date = movie.date?.let(::parseDate) ?: 0L
+                )
             }
-            emptyList()
         }
 
         return newAnimeLoadResponse(title, url, type) {
@@ -185,14 +187,6 @@ class YomirollProvider : MainAPI() {
             plot = description
             tags = genres
         }
-    }
-
-    private val df by lazy { DecimalFormat("0.#") }
-
-    private fun String?.isNumeric() = this?.toDoubleOrNull() != null
-
-    private fun parseDate(dateStr: String): Long {
-        return runCatching { DateFormatter.parse(dateStr)?.time }.getOrNull() ?: 0L
     }
 
     private suspend fun getEpisodes(seasonData: SeasonResult.Season): List<Episode> {
@@ -260,70 +254,105 @@ class YomirollProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        app.get(data).document.select(".movieplay iframe").apmap { iframe ->
-            var embedUrl = fixUrl(iframe.attr("src").ifEmpty { iframe.attr("data-src") })
-            loadExtractor(embedUrl, data, subtitleCallback, callback)
+        val episodeJson = parseJson<EpisodeData>(data);
+        if (episodeJson.ids.isEmpty()) throw Exception("No IDs found for episode")
 
-            if (embedUrl.contains("sbembed.com") || embedUrl.contains("sbembed1.com") || embedUrl.contains("sbplay.org") ||
-                embedUrl.contains("sbvideo.net") || embedUrl.contains("streamsb.net") || embedUrl.contains("sbplay.one") ||
-                embedUrl.contains("cloudemb.com") || embedUrl.contains("playersb.com") || embedUrl.contains("tubesb.com") ||
-                embedUrl.contains("sbplay1.com") || embedUrl.contains("embedsb.com") || embedUrl.contains("watchsb.com") ||
-                embedUrl.contains("sbplay2.com") || embedUrl.contains("japopav.tv") || embedUrl.contains("viewsb.com") ||
-                embedUrl.contains("sbfast") || embedUrl.contains("sbfull.com") || embedUrl.contains("javplaya.com") ||
-                embedUrl.contains("ssbstream.net") || embedUrl.contains("p1ayerjavseen.com") || embedUrl.contains("sbthe.com") ||
-                embedUrl.contains("vidmovie.xyz") || embedUrl.contains("sbspeed.com") || embedUrl.contains("streamsss.net") ||
-                embedUrl.contains("sblanh.com") || embedUrl.contains("sbbrisk.com") || embedUrl.contains("lvturbo.com")
-            ) {
-                embedUrl = "https://sbfull.com/e/${embedUrl.substringAfter("/e/")}"
-            }
-            if (embedUrl.contains("streamlare")) {
-                try {
-                    val id = embedUrl.substringAfter("/e/").substringBefore("?poster")
-                    app.post("https://slwatch.co/api/video/stream/get?id=$id").okhttpResponse.body.toString().let {
-                        val videoUrl = it.substringAfter("file\":\"").substringBefore("\"").ifEmpty {
-                            it.substringAfter("file=\"").substringBefore("\"")
-                        }.trim()
-                        val type = if (videoUrl.contains(".m3u8")) "HSL" else "MP4"
-                        val headers = Headers.Builder()
-                            .add("authority", videoUrl.substringBefore("/hls").substringBefore("/mp4"))
-                            .add("origin", "https://slwatch.co")
-                            .add("referer", "https://slwatch.co/e/" + embedUrl.substringAfter("/e/"))
-                            .add(
-                                "sec-ch-ua",
-                                "\"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"108\", \"Google Chrome\";v=\"108\"",
-                            )
-                            .add("sec-ch-ua-mobile", "?0")
-                            .add("sec-ch-ua-platform", "\"Windows\"")
-                            .add("sec-fetch-dest", "empty")
-                            .add("sec-fetch-mode", "cors")
-                            .add("sec-fetch-site", "cross-site")
-                            .add(
-                                "user-agent",
-                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/),108.0.0.0 Safari/537.36",
-                            )
-                            .add("Accept-Encoding", "gzip, deflate, br")
-                            .add("accept", "*/*")
-                            .add(
-                                "accept-language",
-                                "es-MX,es-419;q=0.9,es;q=0.8,en;q=0.7,zh-TW;q=0.6,zh-CN;q=0.5,zh;q=0.4",
-                            )
-                            .build()
-                        callback.invoke(
-                            ExtractorLink(
-                                this.name,
-                                this.name,
-                                videoUrl,
-                                referer = "https://slwatch.co/e/" + embedUrl.substringAfter("/e/"),
-                                quality = Qualities.Unknown.value,
-                                isM3u8 = type == "HSL",
-                                headers = headers.toMap()
-                            )
-                        )
-                    }
-                }catch (_:Exception) {}
-            }
+        val videoList = episodeJson.ids.filter {
+                    it.second == PREF_AUD_DEFAULT
+                    || it.second == PREF_AUD2_DEFAULT
+                    || it.second == "ja-JP"
+                    || it.second == "en-US"
+                    || it.second == ""
+        }.parallelMap { media ->
+            runCatching {
+                extractVideo(media)
+            }.getOrNull()
+        }.filterNotNull().flatten()
+
+        videoList.map {
+            callback.invoke(
+                ExtractorLink(
+                    this.name,
+                    it.quality,
+                    it.videoUrl ?: "",
+                    referer = "",
+                    quality = Qualities.Unknown.value
+                )
+            )
         }
+
+        /*callback.invoke(
+            ExtractorLink(
+                this.name,
+                this.name,
+                "url",
+                referer = "",
+                quality = Qualities.P720.value
+            )
+        )*/
         return true
+    }
+
+    private suspend fun extractVideo(media: Pair<String, String>): List<Video> {
+        val (mediaId, aud) = media
+        //val response = app.get("$crUrl/cms/v2{0}/videos/$mediaId/streams?Policy={1}&Signature={2}&Key-Pair-Id={3}")
+        //client.newCall(getVideoRequest(mediaId)).execute()
+        val streams = app.get("$crUrl/cms/v2{0}/videos/$mediaId/streams?Policy={1}&Signature={2}&Key-Pair-Id={3}", interceptor = tokenInterceptor).parsed<VideoStreams>()
+            //parseJson<VideoStreams>(response.body.string()) //json.decodeFromString<VideoStreams>(response.body.string())
+
+        val subLocale = PREF_SUB_DEFAULT.getLocale() //preferences.getString(PREF_SUB_KEY, PREF_SUB_DEFAULT)!!.getLocale()
+        val secSubLocale = PREF_SUB2_DEFAULT.getLocale()
+        val subsList = runCatching {
+            streams.subtitles?.entries?.map { (_, value) ->
+                val sub = parseJson<Subtitle>(value.jsonObject.toString()) //json.decodeFromString<Subtitle>(value.jsonObject.toString())
+                Track(sub.url, sub.locale.getLocale())
+            }?.sortedWith(
+                compareBy(
+                    { it.lang },
+                    { it.lang.contains(subLocale) },
+                    { it.lang.contains(secSubLocale) },
+                ),
+            )
+        }.getOrNull() ?: emptyList()
+
+        val audLang = aud.ifBlank { streams.audio_locale } ?: "ja-JP"
+        return getStreams(streams, audLang, subsList)
+    }
+
+    private fun getStreams(
+        streams: VideoStreams,
+        audLang: String,
+        subsList: List<Track>,
+    ): List<Video> {
+        return streams.streams?.adaptive_hls?.entries?.parallelMap { (_, value) ->
+            val stream = parseJson<HlsLinks>(value.jsonObject.toString()) //json.decodeFromString<HlsLinks>(value.jsonObject.toString())
+            runCatching {
+                val playlist = app.get(stream.url, interceptor = tokenInterceptor) //client.newCall(GET(stream.url)).execute()
+                if (playlist.code != 200) return@parallelMap null
+                playlist.body.string().substringAfter("#EXT-X-STREAM-INF:")
+                    .split("#EXT-X-STREAM-INF:").map {
+                        val hardsub = stream.hardsub_locale.let { hs ->
+                            if (hs.isNotBlank()) " - HardSub: $hs" else ""
+                        }
+                        val quality = it.substringAfter("RESOLUTION=")
+                            .split(",")[0].split("\n")[0].substringAfter("x") +
+                                "p - Aud: ${audLang.getLocale()}$hardsub"
+
+                        val videoUrl = it.substringAfter("\n").substringBefore("\n")
+
+                        try {
+                            Video(
+                                videoUrl,
+                                quality,
+                                videoUrl,
+                                subtitleTracks = if (hardsub.isNotBlank()) emptyList() else subsList,
+                            )
+                        } catch (_: Error) {
+                            Video(videoUrl, quality, videoUrl)
+                        }
+                    }
+            }.getOrNull()
+        }?.filterNotNull()?.flatten() ?: emptyList()
     }
 
     companion object {
@@ -339,11 +368,13 @@ class YomirollProvider : MainAPI() {
 
         private const val PREF_AUD_KEY = "preferred_audio"
         private const val PREF_AUD_TITLE = "Preferred Audio Language"
-        private const val PREF_AUD_DEFAULT = "en-US"
+        private const val PREF_AUD_DEFAULT = "es-419"
+        private const val PREF_AUD2_DEFAULT = "es-LA"
 
         private const val PREF_SUB_KEY = "preferred_sub"
         private const val PREF_SUB_TITLE = "Preferred Sub Language"
-        private const val PREF_SUB_DEFAULT = "en-US"
+        private const val PREF_SUB_DEFAULT = "es-419"
+        private const val PREF_SUB2_DEFAULT = "es-LA"
 
         private const val PREF_SUB_TYPE_KEY = "preferred_sub_type"
         private const val PREF_SUB_TYPE_TITLE = "Preferred Sub Type"
