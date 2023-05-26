@@ -58,7 +58,7 @@ class YomirollProvider : MainAPI() {
         val home = parsed.data.map {
             AnimeSearchResponse(
                 it.title,
-                "cr.com?type=${it.type}&id=${it.id}?anime=${it.toJson()}",
+                "cr.com?type=${it.type}&id=${it.id}&anime=${it.toJson()}",
                 this.name,
                 TvType.Anime,
                 it.images.poster_tall?.getOrNull(0)?.thirdLast()?.source ?: it.images.poster_tall?.getOrNull(0)?.last()?.source,
