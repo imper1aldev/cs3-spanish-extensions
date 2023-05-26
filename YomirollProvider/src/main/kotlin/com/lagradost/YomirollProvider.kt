@@ -104,27 +104,24 @@ class YomirollProvider : MainAPI() {
         // Gets the url returned from searching.
         val mediaType = url.toHttpUrl().queryParameter("type")
         val animeId = url.toHttpUrl().queryParameter("id")
-        val anime = url.toHttpUrl().queryParameter("anime")
+        val anime = parseJson<Anime>(url.toHttpUrl().queryParameter("anime") ?: "")
 
-
-        val soup = app.get(
+        val info = app.get(
             if (mediaType == "series") {
                 "$crApiUrl/cms/series/${animeId}?locale=en-US"
             } else {
                 "$crApiUrl/cms/movie_listings/${animeId}?locale=en-US"
             },
             interceptor = tokenInterceptor
-        ).parsed<AnimeResult>()
+        ).parsed<AnimeResult>().data.first()
 
-        val info = soup.data.first()
-
-        val title = info.title
-        var desc = info.description + "\n"
+        val title = anime.title
+        var desc = anime.description + "\n"
         desc += "\nLanguage:" +
                 (
-                        if (info.series_metadata?.subtitle_locales?.any() == true ||
-                            info.movie_metadata?.subtitle_locales?.any() == true ||
-                            info.series_metadata?.is_subbed == true
+                        if (anime.series_metadata?.subtitle_locales?.any() == true ||
+                            anime.movie_metadata?.subtitle_locales?.any() == true ||
+                            anime.series_metadata?.is_subbed == true
                         ) {
                             " Sub"
                         } else {
@@ -132,8 +129,8 @@ class YomirollProvider : MainAPI() {
                         }
                         ) +
                 (
-                        if ((info.series_metadata?.audio_locales?.size ?: 0) > 1 ||
-                            info.movie_metadata?.is_dubbed == true
+                        if ((anime.series_metadata?.audio_locales?.size ?: 0) > 1 ||
+                            anime.movie_metadata?.is_dubbed == true
                         ) {
                             " Dub"
                         } else {
@@ -141,21 +138,22 @@ class YomirollProvider : MainAPI() {
                         }
                         )
         desc += "\nMaturity Ratings: " +
-                ( info.series_metadata?.maturity_ratings?.joinToString()
-                    ?: info.movie_metadata?.maturity_ratings?.joinToString() ?: "")
-        desc += if (info.series_metadata?.is_simulcast == true) "\nSimulcast" else ""
+                ( anime.series_metadata?.maturity_ratings?.joinToString()
+                    ?: anime.movie_metadata?.maturity_ratings?.joinToString() ?: "")
+        desc += if (anime.series_metadata?.is_simulcast == true) "\nSimulcast" else ""
         desc += "\n\nAudio: " + (
-                info.series_metadata?.audio_locales?.sortedBy { it.getLocale() }
+                anime.series_metadata?.audio_locales?.sortedBy { it.getLocale() }
                     ?.joinToString { it.getLocale() } ?: ""
                 )
         desc += "\n\nSubs: " + (
-                info.series_metadata?.subtitle_locales?.sortedBy { it.getLocale() }
+                anime.series_metadata?.subtitle_locales?.sortedBy { it.getLocale() }
                     ?.joinToString { it.getLocale() }
-                    ?: info.movie_metadata?.subtitle_locales?.sortedBy { it.getLocale() }
+                    ?: anime.movie_metadata?.subtitle_locales?.sortedBy { it.getLocale() }
                         ?.joinToString { it.getLocale() } ?: ""
                 )
-        val description = desc + "\n $anime"
-        val genres = info.series_metadata?.genres ?: info.movie_metadata?.genres ?: emptyList() //  soup.select(".mvic-info .mvici-left p a[rel=\"category tag\"]").map { it.text().trim() }
+        val description = desc + " ${anime.type}"
+
+        val genres = anime.series_metadata?.genres ?: anime.movie_metadata?.genres ?: emptyList()
         val posterImg = info.images.poster_wide?.getOrNull(0)?.thirdLast()?.source ?: info.images.poster_wide?.getOrNull(0)?.last()?.source  // externalOrInternalImg(soup.selectFirst("#mv-info .mvic-thumb img")!!.attr("src"))
 
         val episodes = mutableListOf<Episode>()
