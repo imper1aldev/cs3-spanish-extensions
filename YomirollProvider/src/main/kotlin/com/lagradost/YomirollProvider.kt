@@ -58,7 +58,7 @@ class YomirollProvider : MainAPI() {
         val home = parsed.data.map {
             AnimeSearchResponse(
                 it.title,
-                "cr.com?type=${it.type}&id=${it.id}",
+                "cr.com?type=${it.type}&id=${it.id}?anime=${it.toJson()}",
                 this.name,
                 TvType.Anime,
                 it.images.poster_tall?.getOrNull(0)?.thirdLast()?.source ?: it.images.poster_tall?.getOrNull(0)?.last()?.source,
@@ -104,6 +104,8 @@ class YomirollProvider : MainAPI() {
         // Gets the url returned from searching.
         val mediaType = url.toHttpUrl().queryParameter("type")
         val animeId = url.toHttpUrl().queryParameter("id")
+        val anime = url.toHttpUrl().queryParameter("anime")
+
 
         val soup = app.get(
             if (mediaType == "series") {
@@ -152,7 +154,7 @@ class YomirollProvider : MainAPI() {
                     ?: info.movie_metadata?.subtitle_locales?.sortedBy { it.getLocale() }
                         ?.joinToString { it.getLocale() } ?: ""
                 )
-        val description = desc + "\n ${soup.toJson()}"
+        val description = desc + "\n $anime"
         val genres = info.series_metadata?.genres ?: info.movie_metadata?.genres ?: emptyList() //  soup.select(".mvic-info .mvici-left p a[rel=\"category tag\"]").map { it.text().trim() }
         val posterImg = info.images.poster_wide?.getOrNull(0)?.thirdLast()?.source ?: info.images.poster_wide?.getOrNull(0)?.last()?.source  // externalOrInternalImg(soup.selectFirst("#mv-info .mvic-thumb img")!!.attr("src"))
 
