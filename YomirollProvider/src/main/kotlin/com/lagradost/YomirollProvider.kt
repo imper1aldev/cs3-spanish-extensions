@@ -10,6 +10,8 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.loadExtractor
 import com.lagradost.nicehttp.requestCreator
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
@@ -17,8 +19,11 @@ import java.net.Authenticator
 import java.net.InetSocketAddress
 import java.net.PasswordAuthentication
 import java.net.Proxy
+import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 
 class YomirollProvider : MainAPI() {
 
@@ -58,7 +63,7 @@ class YomirollProvider : MainAPI() {
         val home = parsed.data.map {
             AnimeSearchResponse(
                 it.title,
-                "cr.com?type=${it.type}&id=${it.id}&anime=${it.toJson()}",
+                "cr.com?anime=${it.toJson()}",
                 this.name,
                 TvType.Anime,
                 it.images.poster_tall?.getOrNull(0)?.thirdLast()?.source ?: it.images.poster_tall?.getOrNull(0)?.last()?.source,
@@ -100,17 +105,19 @@ class YomirollProvider : MainAPI() {
         return epsStr.filter { it.isDigit() }.ifEmpty { "0" }
     }
 
+    private fun <A, B> Iterable<A>.parallelMap(f: suspend (A) -> B): List<B> =
+        runBlocking {
+            map { async(Dispatchers.Default) { f(it) } }.awaitAll()
+        }
+
     override suspend fun load(url: String): LoadResponse? {
         // Gets the url returned from searching.
-        val mediaType = url.toHttpUrl().queryParameter("type")
-        val animeId = url.toHttpUrl().queryParameter("id")
         val anime = parseJson<Anime>(url.toHttpUrl().queryParameter("anime") ?: "")
-
         val info = app.get(
-            if (mediaType == "series") {
-                "$crApiUrl/cms/series/${animeId}?locale=en-US"
+            if (anime.type == "series") {
+                "$crApiUrl/cms/series/${anime.id}?locale=en-US"
             } else {
-                "$crApiUrl/cms/movie_listings/${animeId}?locale=en-US"
+                "$crApiUrl/cms/movie_listings/${anime.id}?locale=en-US"
             },
             interceptor = tokenInterceptor
         ).parsed<AnimeResult>().data.first()
@@ -122,54 +129,54 @@ class YomirollProvider : MainAPI() {
                         if (anime.series_metadata?.subtitle_locales?.any() == true ||
                             anime.movie_metadata?.subtitle_locales?.any() == true ||
                             anime.series_metadata?.is_subbed == true
-                        ) {
-                            " Sub"
-                        } else {
-                            ""
-                        }
-                        ) +
+                        ) { " Sub" } else { "" }
+                ) +
                 (
                         if ((anime.series_metadata?.audio_locales?.size ?: 0) > 1 ||
                             anime.movie_metadata?.is_dubbed == true
-                        ) {
-                            " Dub"
-                        } else {
-                            ""
-                        }
-                        )
-        desc += "\nMaturity Ratings: " +
-                ( anime.series_metadata?.maturity_ratings?.joinToString()
-                    ?: anime.movie_metadata?.maturity_ratings?.joinToString() ?: "")
-        desc += if (anime.series_metadata?.is_simulcast == true) "\nSimulcast" else ""
-        desc += "\n\nAudio: " + (
-                anime.series_metadata?.audio_locales?.sortedBy { it.getLocale() }
-                    ?.joinToString { it.getLocale() } ?: ""
+                        ) { " Dub" } else { "" }
                 )
+        desc += "\nMaturity Ratings: " +
+                ( anime.series_metadata?.maturity_ratings?.joinToString() ?: anime.movie_metadata?.maturity_ratings?.joinToString() ?: "")
+        desc += if (anime.series_metadata?.is_simulcast == true) "\nSimulcast" else ""
+        desc += "\n\nAudio: " + (anime.series_metadata?.audio_locales?.sortedBy { it.getLocale() }?.joinToString { it.getLocale() } ?: "")
         desc += "\n\nSubs: " + (
-                anime.series_metadata?.subtitle_locales?.sortedBy { it.getLocale() }
-                    ?.joinToString { it.getLocale() }
-                    ?: anime.movie_metadata?.subtitle_locales?.sortedBy { it.getLocale() }
-                        ?.joinToString { it.getLocale() } ?: ""
+                anime.series_metadata?.subtitle_locales?.sortedBy { it.getLocale() }?.joinToString { it.getLocale() }
+                    ?: anime.movie_metadata?.subtitle_locales?.sortedBy { it.getLocale() }?.joinToString { it.getLocale() } ?: ""
                 )
         val description = desc + " ${anime.type}"
 
         val genres = anime.series_metadata?.genres ?: anime.movie_metadata?.genres ?: emptyList()
         val posterImg = info.images.poster_wide?.getOrNull(0)?.thirdLast()?.source ?: info.images.poster_wide?.getOrNull(0)?.last()?.source  // externalOrInternalImg(soup.selectFirst("#mv-info .mvic-thumb img")!!.attr("src"))
 
-        val episodes = mutableListOf<Episode>()
-        val type = if (info.type?.contains("series") == true) TvType.Anime else TvType.AnimeMovie
-        /*val type = if (url.contains("/series/")) TvType.TvSeries else TvType.Movie
-        if (type == TvType.Movie) {
-             episodes.add(Episode(url))
-        } else {
-            soup.select("#seasons .tvseason").mapIndexed { idxSeason, season ->
-                val noSeason = try { getNumberFromString(season.selectFirst(".les-title strong")?.text() ?: "").toInt() } catch (_: Exception) { idxSeason + 1 }
-                season.select(".les-content a").mapIndexed { idxEpisode, ep ->
-                    val noEpisode = try { getNumberFromString(ep.text()).toInt() } catch (_: Exception) { idxEpisode + 1 }
-                    episodes.add(Episode(ep.attr("href"), episode = noEpisode, season = noSeason))
-                }
+        //val episodes = mutableListOf<Episode>()
+        val type = if (anime.type?.contains("series") == true) TvType.Anime else TvType.AnimeMovie
+
+        val seasons = app.get(
+            if (anime.type == "series") {
+                "$crApiUrl/cms/series/${anime.id}/seasons"
+            } else {
+                "$crApiUrl/cms/movie_listings/${anime.id}/movies"
+            },
+            interceptor = tokenInterceptor
+        ).parsed<SeasonResult>()
+
+        val chunkSize = Runtime.getRuntime().availableProcessors()
+        val episodes = if (type == TvType.Anime) {
+            seasons.data.sortedBy { it.season_number }.chunked(chunkSize).flatMap { chunk ->
+                chunk.parallelMap { seasonData ->
+                    runCatching {
+                        getEpisodes(seasonData)
+                    }.getOrNull()
+                }.filterNotNull().flatten()
+            }.reversed()
+        }
+        else {
+            seasons.data.mapIndexed { index, movie ->
+                Episode(EpisodeData(listOf(Pair(movie.id, ""))).toJson(), episode = (index + 1), date = movie.date?.let(::parseDate) ?: 0L)
             }
-        }*/
+            emptyList()
+        }
 
         return newAnimeLoadResponse(title, url, type) {
             posterUrl = posterImg
@@ -177,6 +184,41 @@ class YomirollProvider : MainAPI() {
             showStatus = ShowStatus.Completed
             plot = description
             tags = genres
+        }
+    }
+
+    private val df by lazy { DecimalFormat("0.#") }
+
+    private fun String?.isNumeric() = this?.toDoubleOrNull() != null
+
+    private fun parseDate(dateStr: String): Long {
+        return runCatching { DateFormatter.parse(dateStr)?.time }.getOrNull() ?: 0L
+    }
+
+    private suspend fun getEpisodes(seasonData: SeasonResult.Season): List<Episode> {
+        val episodes = app.get("$crApiUrl/cms/seasons/${seasonData.id}/episodes", interceptor = tokenInterceptor).parsed<EpisodeResult>()
+        return episodes.data.sortedBy { it.episode_number }.mapNotNull EpisodeMap@{ ep ->
+            Episode(
+                EpisodeData(
+                    ep.versions?.map { Pair(it.mediaId, it.audio_locale) }
+                        ?: listOf(
+                            Pair(
+                                ep.streams_link?.substringAfter("videos/")
+                                    ?.substringBefore("/streams")
+                                    ?: return@EpisodeMap null,
+                                ep.audio_locale,
+                            ),
+                        ),
+                ).toJson(),
+                name = if (ep.episode_number > 0 && ep.episode.isNumeric()) {
+                    "Season ${seasonData.season_number} Ep ${df.format(ep.episode_number)}: " + ep.title
+                } else {
+                    ep.title
+                },
+                episode = ep.episode_number.toInt(),
+                season = seasonData.season_number,
+                date = ep.airDate?.let(::parseDate) ?: 0L
+            )
         }
     }
 
