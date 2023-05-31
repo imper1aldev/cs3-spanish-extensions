@@ -1,9 +1,6 @@
 package com.lagradost
 
-import android.net.Uri
 import com.fasterxml.jackson.annotation.JsonProperty
-import kotlinx.serialization.json.JsonObject
-import okhttp3.Headers
 
 data class AccessToken(
     val access_token: String,
@@ -26,11 +23,6 @@ data class Policy(
         val expires: String,
     )
 }
-
-data class LinkData(
-    val id: String,
-    val media_type: String,
-)
 
 data class Images(
     val poster_tall: List<ArrayList<Image>>? = null,
@@ -83,16 +75,6 @@ data class AnimeResult(
     val data: ArrayList<Anime>,
 )
 
-data class SearchAnimeResult(
-    val data: ArrayList<SearchAnime>,
-) {
-        data class SearchAnime(
-        val type: String,
-        val count: Int,
-        val items: ArrayList<Anime>,
-    )
-}
-
 data class SeasonResult(
     val total: Int,
     val data: ArrayList<Season>,
@@ -132,26 +114,6 @@ data class EpisodeData(
     val ids: List<Pair<String, String>>
 )
 
-data class VideoStreams(
-    val streams: Stream? = null,
-    val subtitles: JsonObject? = null,
-    val audio_locale: String? = null,
-) {
-        data class Stream(
-        val adaptive_hls: JsonObject,
-    )
-}
-
-data class HlsLinks(
-    val hardsub_locale: String,
-    val url: String,
-)
-
-data class Subtitle(
-    val locale: String,
-    val url: String,
-)
-
 fun <T> List<T>.thirdLast(): T? {
     if (size < 3) return null
     return this[size - 3]
@@ -165,39 +127,6 @@ data class CrunchyrollToken(
     @JsonProperty("country") val country: String? = null
 )
 
-data class Track(val url: String, val lang: String)
-
-data class Video(
-    val url: String = "",
-    val quality: String = "",
-    var videoUrl: String? = null,
-    @Transient var uri: Uri? = null, // Deprecated but can't be deleted due to extensions
-    val headers: Headers? = null,
-    // "url", "language-label-2", "url2", "language-label-2"
-    val subtitleTracks: List<Track> = emptyList(),
-    val audioTracks: List<Track> = emptyList(),
-){
-    constructor(
-        url: String,
-        quality: String,
-        videoUrl: String?,
-        headers: Headers? = null,
-        subtitleTracks: List<Track> = emptyList(),
-        audioTracks: List<Track> = emptyList(),
-    ) : this(url, quality, videoUrl, null, headers, subtitleTracks, audioTracks)
-
-    constructor(
-        url: String,
-        quality: String,
-        videoUrl: String?,
-        uri: Uri?,
-        headers: Headers? = null,
-    ) : this(url, quality, videoUrl, uri, headers, emptyList(), emptyList())
-}
-
-data class CrunchyrollResponses(
-    @JsonProperty("data") val data: ArrayList<CrunchyrollData>? = arrayListOf(),
-)
 
 data class CrunchyrollData(
     @JsonProperty("id") val id: String? = null,
@@ -223,27 +152,4 @@ data class CrunchyrollSourcesResponses(
 
 data class CrunchyrollMeta(
     @JsonProperty("subtitles") val subtitles: HashMap<String, HashMap<String, String>>? = hashMapOf(),
-)
-
-data class AnilistResponses(
-    @JsonProperty("data") var data: AnilistData? = AnilistData()
-)
-
-data class AnilistData(
-    @JsonProperty("Media") var Media: AnilistMedia? = AnilistMedia()
-)
-
-data class AnilistMedia(
-    @JsonProperty("externalLinks") var externalLinks: ArrayList<AnilistExternalLinks> = arrayListOf()
-)
-
-data class AnilistExternalLinks(
-    @JsonProperty("id") var id: Int? = null,
-    @JsonProperty("site") var site: String? = null,
-    @JsonProperty("url") var url: String? = null,
-    @JsonProperty("type") var type: String? = null,
-)
-
-data class MalSyncRes(
-    @JsonProperty("Sites") val Sites: Map<String,Map<String,Map<String,String>>>? = null,
 )

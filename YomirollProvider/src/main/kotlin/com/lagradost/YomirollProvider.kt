@@ -1,21 +1,14 @@
 package com.lagradost
 
-import android.net.Uri
-import android.widget.Toast
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.M3u8Helper
-import com.lagradost.cloudstream3.utils.Qualities
-import com.lagradost.cloudstream3.utils.SubtitleHelper
-import com.lagradost.cloudstream3.utils.loadExtractor
-import com.lagradost.nicehttp.RequestBodyTypes
 import com.lagradost.nicehttp.requestCreator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import java.net.Authenticator
@@ -27,9 +20,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.serialization.json.jsonObject
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.RequestBody.Companion.toRequestBody
 
 class YomirollProvider : MainAPI() {
 
@@ -287,7 +277,9 @@ class YomirollProvider : MainAPI() {
                     || it.second == "ja-JP"
                     || it.second == "en-US"
                     || it.second == ""
-        }.parallelMap {
+        }.sortedWith(
+            compareBy( { it.second.contains(PREF_AUD_DEFAULT) }, { it.second.contains(PREF_AUD2_DEFAULT) })
+        ).parallelMap {
             val (mediaId, audioL) = it
             val streams = app.get(
                 "https://beta-api.crunchyroll.com/content/v2/cms/videos/$mediaId/streams",
@@ -298,7 +290,7 @@ class YomirollProvider : MainAPI() {
                 "adaptive_hls",
                 "vo_adaptive_hls"
             ).map { hls ->
-                val name = if (hls == "adaptive_hls") "Crunchyroll" else "Vrv"
+                val name = "Crunchyroll" //if (hls == "adaptive_hls") "Crunchyroll" else "Vrv"
                 val audio = audioL.getLocale()
                 val source = streams?.data?.firstOrNull()?.let { src -> if (hls == "adaptive_hls") src.adaptive_hls else src.vo_adaptive_hls }
 
@@ -328,79 +320,6 @@ class YomirollProvider : MainAPI() {
         }
 
         return true
-    }
-
-    private suspend fun extractVideo(media: Pair<String, String>): List<Video> {
-        val (mediaId, aud) = media
-        //val response = app.get("$crUrl/cms/v2{0}/videos/$mediaId/streams?Policy={1}&Signature={2}&Key-Pair-Id={3}")
-        //client.newCall(getVideoRequest(mediaId)).execute()
-        val streams =
-            app.get("$crApiUrl/cms/videos/$mediaId/streams", interceptor = tokenInterceptor)
-                .parsed<VideoStreams>()
-        //parseJson<VideoStreams>(response.body.string()) //json.decodeFromString<VideoStreams>(response.body.string())
-
-        val subLocale = PREF_SUB_DEFAULT.getLocale()
-        val secSubLocale = PREF_SUB2_DEFAULT.getLocale()
-        val subsList = runCatching {
-            streams.subtitles?.entries?.map { (_, value) ->
-                val sub =
-                    parseJson<Subtitle>(value.jsonObject.toString()) //json.decodeFromString<Subtitle>(value.jsonObject.toString())
-                Track(sub.url, sub.locale.getLocale())
-            }?.sortedWith(
-                compareBy(
-                    { it.lang },
-                    { it.lang.contains(subLocale) },
-                    { it.lang.contains(secSubLocale) },
-                ),
-            )
-        }.getOrNull() ?: emptyList()
-
-        val audLang = aud.ifBlank { streams.audio_locale } ?: "ja-JP"
-        return getStreams(streams, audLang, subsList)
-    }
-
-    private fun getStreams(
-        streams: VideoStreams,
-        audLang: String,
-        subsList: List<Track>,
-    ): List<Video> {
-        return streams.streams?.adaptive_hls?.entries?.parallelMap { (_, value) ->
-            val stream =
-                parseJson<HlsLinks>(value.jsonObject.toString()) //json.decodeFromString<HlsLinks>(value.jsonObject.toString())
-            runCatching {
-                val playlist = app.get(
-                    stream.url,
-                    interceptor = tokenInterceptor
-                ) //client.newCall(GET(stream.url)).execute()
-                if (playlist.code != 200) return@parallelMap null
-                playlist.body.string().substringAfter("#EXT-X-STREAM-INF:")
-                    .split("#EXT-X-STREAM-INF:").map {
-                        val hardsub = stream.hardsub_locale.let { hs ->
-                            if (hs.isNotBlank()) " - HardSub: $hs" else ""
-                        }
-
-                        val quality = it.substringAfter("RESOLUTION=")
-                            .split(",")[0].split("\n")[0].substringAfter("x") + "p"
-
-                        val qualityTitle = it.substringAfter("RESOLUTION=")
-                            .split(",")[0].split("\n")[0].substringAfter("x") +
-                                "p - Aud: ${audLang.getLocale()}$hardsub"
-
-                        val videoUrl = it.substringAfter("\n").substringBefore("\n")
-
-                        try {
-                            Video(
-                                videoUrl,
-                                qualityTitle,
-                                videoUrl,
-                                subtitleTracks = if (hardsub.isNotBlank()) emptyList() else subsList,
-                            )
-                        } catch (_: Error) {
-                            Video(videoUrl, qualityTitle, videoUrl)
-                        }
-                    }
-            }.getOrNull()
-        }?.filterNotNull()?.flatten() ?: emptyList()
     }
 
     companion object {
@@ -471,29 +390,4 @@ class YomirollProvider : MainAPI() {
         return mapOf("Authorization" to "${response?.tokenType} ${response?.accessToken}")
     }
 
-    private fun String?.createSlug(): String? {
-        return this?.replace(Regex("[^\\w\\s-]"), "")
-            ?.replace(" ", "-")
-            ?.replace(Regex("( – )|( -)|(- )|(--)"), "-")
-            ?.lowercase()
-    }
-
-    private fun fixUrl(url: String, domain: String): String {
-        if (url.startsWith("http")) {
-            return url
-        }
-        if (url.isEmpty()) {
-            return ""
-        }
-
-        val startsWithNoHttp = url.startsWith("//")
-        if (startsWithNoHttp) {
-            return "https:$url"
-        } else {
-            if (url.startsWith('/')) {
-                return domain + url
-            }
-            return "$domain/$url"
-        }
-    }
 }
