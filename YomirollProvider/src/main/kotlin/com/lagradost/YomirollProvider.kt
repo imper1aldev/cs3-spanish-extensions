@@ -299,7 +299,7 @@ class YomirollProvider : MainAPI() {
                         { it.key.contains(PREF_AUD2_DEFAULT) }
                     )
                 )?.apmap {
-                    val audio = it.key.getLocale()
+                    val audio = it.key.ifEmpty { "ja-JP" }.getLocale()
                     val url = it.value.get("url")
                     val hardSub = if(it.value.get("hardsub_locale")?.isNotBlank() == true) " [HardSub]" else ""
                     M3u8Helper.generateM3u8(
