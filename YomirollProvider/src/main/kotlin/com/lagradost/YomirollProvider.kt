@@ -291,7 +291,7 @@ class YomirollProvider : MainAPI() {
             val (mediaId, audioL) = it
             val streams = app.get(
                 "https://beta-api.crunchyroll.com/content/v2/cms/videos/$mediaId/streams",
-                interceptor = tokenInterceptor
+                headers = getCrunchyrollToken()
             ).parsedSafe<CrunchyrollSourcesResponses>()
 
             listOf(
@@ -300,13 +300,20 @@ class YomirollProvider : MainAPI() {
             ).map { hls ->
                 val name = if (hls == "adaptive_hls") "Crunchyroll" else "Vrv"
                 val audio = audioL.getLocale()
-                val source = streams?.data?.firstOrNull()
-                    ?.let { src -> if (hls == "adaptive_hls") src.adaptive_hls else src.vo_adaptive_hls }
-                M3u8Helper.generateM3u8(
-                    "$name [$audio]",
-                    source?.get("")?.get("url") ?: return@map,
-                    "https://static.crunchyroll.com/"
-                ).forEach(callback)
+                val source = streams?.data?.firstOrNull()?.let { src -> if (hls == "adaptive_hls") src.adaptive_hls else src.vo_adaptive_hls }
+
+                source?.map {
+                    val stream = tryParseJson<HlsLinks>(it.value.toString())
+                    val hardSub = stream?.hardsub_locale?.let { hs ->
+                        if (hs.isNotBlank()) " - HardSub: $hs" else ""
+                    }
+
+                    M3u8Helper.generateM3u8(
+                        "$name [$audio] $hardSub",
+                        stream?.url ?: return@map /*source?.get("")?.get("url") ?: return@map*/,
+                        "https://static.crunchyroll.com/"
+                    ).forEach(callback)
+                }
             }
 
             streams?.meta?.subtitles?.map { sub ->
@@ -319,65 +326,7 @@ class YomirollProvider : MainAPI() {
             }
         }
 
-
-        /*callback.invoke(
-            ExtractorLink(
-                this.name,
-                this.name,
-                "url",
-                referer = "",
-                quality = Qualities.P720.value
-            )
-        )*/
         return true
-    }
-
-    private suspend fun streams(
-        media: Pair<String, String>,
-        callback: (ExtractorLink) -> Unit,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        epsTitle: String? = null,
-        episode: Int? = null
-    ) {
-        val (sId, audioL) = media
-        val streamsLink =
-            app.get(
-                "$crUrl/content/v2/cms/seasons/${sId}/episodes",
-                interceptor = tokenInterceptor
-            ).parsedSafe<CrunchyrollResponses>()?.data?.find {
-                it.title.equals(epsTitle, true) || it.slug_title.equals(
-                    epsTitle.createSlug(),
-                    true
-                ) || it.episode_number == episode
-            }?.streams_link
-        val sources = app.get(fixUrl(streamsLink ?: "", crUrl), interceptor = tokenInterceptor)
-            .parsedSafe<CrunchyrollSourcesResponses>()
-
-        listOf(
-            "adaptive_hls",
-            "vo_adaptive_hls"
-        ).map { hls ->
-            val name = if (hls == "adaptive_hls") "Crunchyroll" else "Vrv"
-            val audio = if (audioL == "en-US") "English Dub" else "Raw"
-            val source = sources?.data?.firstOrNull()?.let {
-                if (hls == "adaptive_hls")
-                    it.adaptive_hls else it.vo_adaptive_hls
-            }
-            M3u8Helper.generateM3u8(
-                "$name [$audio]",
-                source?.get("")?.get("url") ?: return@map,
-                "https://static.crunchyroll.com/"
-            ).forEach(callback)
-        }
-
-        sources?.meta?.subtitles?.map { sub ->
-            subtitleCallback.invoke(
-                SubtitleFile(
-                    "${sub.key.getLocale()} [ass]",
-                    sub.value["url"] ?: return@map null
-                )
-            )
-        }
     }
 
     private suspend fun extractVideo(media: Pair<String, String>): List<Video> {
@@ -389,8 +338,7 @@ class YomirollProvider : MainAPI() {
                 .parsed<VideoStreams>()
         //parseJson<VideoStreams>(response.body.string()) //json.decodeFromString<VideoStreams>(response.body.string())
 
-        val subLocale =
-            PREF_SUB_DEFAULT.getLocale() //preferences.getString(PREF_SUB_KEY, PREF_SUB_DEFAULT)!!.getLocale()
+        val subLocale = PREF_SUB_DEFAULT.getLocale()
         val secSubLocale = PREF_SUB2_DEFAULT.getLocale()
         val subsList = runCatching {
             streams.subtitles?.entries?.map { (_, value) ->
