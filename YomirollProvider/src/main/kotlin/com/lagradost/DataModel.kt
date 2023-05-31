@@ -194,3 +194,56 @@ data class Video(
         headers: Headers? = null,
     ) : this(url, quality, videoUrl, uri, headers, emptyList(), emptyList())
 }
+
+data class CrunchyrollResponses(
+    @JsonProperty("data") val data: ArrayList<CrunchyrollData>? = arrayListOf(),
+)
+
+data class CrunchyrollData(
+    @JsonProperty("id") val id: String? = null,
+    @JsonProperty("title") val title: String? = null,
+    @JsonProperty("slug_title") val slug_title: String? = null,
+    @JsonProperty("season_number") val season_number: Int? = null,
+    @JsonProperty("episode_number") val episode_number: Int? = null,
+    @JsonProperty("versions") val versions: ArrayList<CrunchyrollVersions>? = null,
+    @JsonProperty("streams_link") val streams_link: String? = null,
+    @JsonProperty("adaptive_hls") val adaptive_hls: HashMap<String, HashMap<String, String>>? = hashMapOf(),
+    @JsonProperty("vo_adaptive_hls") val vo_adaptive_hls: HashMap<String, HashMap<String, String>>? = hashMapOf(),
+)
+
+data class CrunchyrollVersions(
+    @JsonProperty("audio_locale") val audio_locale: String? = null,
+    @JsonProperty("guid") val guid: String? = null,
+)
+
+data class CrunchyrollSourcesResponses(
+    @JsonProperty("data") val data: ArrayList<CrunchyrollData>? = arrayListOf(),
+    @JsonProperty("meta") val meta: CrunchyrollMeta? = null,
+)
+
+data class CrunchyrollMeta(
+    @JsonProperty("subtitles") val subtitles: HashMap<String, HashMap<String, String>>? = hashMapOf(),
+)
+
+data class AnilistResponses(
+    @JsonProperty("data") var data: AnilistData? = AnilistData()
+)
+
+data class AnilistData(
+    @JsonProperty("Media") var Media: AnilistMedia? = AnilistMedia()
+)
+
+data class AnilistMedia(
+    @JsonProperty("externalLinks") var externalLinks: ArrayList<AnilistExternalLinks> = arrayListOf()
+)
+
+data class AnilistExternalLinks(
+    @JsonProperty("id") var id: Int? = null,
+    @JsonProperty("site") var site: String? = null,
+    @JsonProperty("url") var url: String? = null,
+    @JsonProperty("type") var type: String? = null,
+)
+
+data class MalSyncRes(
+    @JsonProperty("Sites") val Sites: Map<String,Map<String,Map<String,String>>>? = null,
+)

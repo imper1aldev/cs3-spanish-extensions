@@ -1,6 +1,7 @@
 package com.lagradost
 
 import android.net.Uri
+import android.widget.Toast
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
@@ -8,7 +9,9 @@ import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.M3u8Helper
 import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.SubtitleHelper
 import com.lagradost.cloudstream3.utils.loadExtractor
+import com.lagradost.nicehttp.RequestBodyTypes
 import com.lagradost.nicehttp.requestCreator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -25,11 +28,15 @@ import java.util.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.serialization.json.jsonObject
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class YomirollProvider : MainAPI() {
 
     override var mainUrl = "https://www.crunchyroll.com"
     private val crUrl = "https://beta-api.crunchyroll.com"
+    private val malsyncAPI = "https://api.malsync.moe"
+    private val anilistAPI = "https://graphql.anilist.co"
     private val crApiUrl = "$crUrl/content/v2"
     private val id: Long = 7463514907068706782
 
@@ -193,7 +200,7 @@ class YomirollProvider : MainAPI() {
         val episodes = app.get("$crApiUrl/cms/seasons/${seasonData.id}/episodes", interceptor = tokenInterceptor).parsed<EpisodeResult>()
         return episodes.data.sortedBy { it.episode_number }.mapNotNull EpisodeMap@{ ep ->
             Episode(
-                EpisodeData(
+                "cr.com?episodeData=" + EpisodeData(
                     ep.versions?.map { Pair(it.mediaId, it.audio_locale) }
                         ?: listOf(
                             Pair(
@@ -254,10 +261,11 @@ class YomirollProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val episodeJson = parseJson<EpisodeData>(data);
+        val dataJson = data.toHttpUrl().queryParameter("episodeData") ?: ""
+        val episodeJson = parseJson<EpisodeData>(dataJson);
         if (episodeJson.ids.isEmpty()) throw Exception("No IDs found for episode")
 
-        val videoList = episodeJson.ids.filter {
+        episodeJson.ids.filter {
                     it.second == PREF_AUD_DEFAULT
                     || it.second == PREF_AUD2_DEFAULT
                     || it.second == "ja-JP"
@@ -267,9 +275,7 @@ class YomirollProvider : MainAPI() {
             runCatching {
                 extractVideo(media)
             }.getOrNull()
-        }.filterNotNull().flatten()
-
-        videoList.map {
+        }.filterNotNull().flatten().map {
             callback.invoke(
                 ExtractorLink(
                     this.name,
@@ -280,6 +286,7 @@ class YomirollProvider : MainAPI() {
                 )
             )
         }
+
 
         /*callback.invoke(
             ExtractorLink(
@@ -297,7 +304,7 @@ class YomirollProvider : MainAPI() {
         val (mediaId, aud) = media
         //val response = app.get("$crUrl/cms/v2{0}/videos/$mediaId/streams?Policy={1}&Signature={2}&Key-Pair-Id={3}")
         //client.newCall(getVideoRequest(mediaId)).execute()
-        val streams = app.get("$crUrl/cms/v2{0}/videos/$mediaId/streams?Policy={1}&Signature={2}&Key-Pair-Id={3}", interceptor = tokenInterceptor).parsed<VideoStreams>()
+        val streams = app.get("$crApiUrl/cms/videos/$mediaId/streams", interceptor = tokenInterceptor).parsed<VideoStreams>()
             //parseJson<VideoStreams>(response.body.string()) //json.decodeFromString<VideoStreams>(response.body.string())
 
         val subLocale = PREF_SUB_DEFAULT.getLocale() //preferences.getString(PREF_SUB_KEY, PREF_SUB_DEFAULT)!!.getLocale()
@@ -334,7 +341,11 @@ class YomirollProvider : MainAPI() {
                         val hardsub = stream.hardsub_locale.let { hs ->
                             if (hs.isNotBlank()) " - HardSub: $hs" else ""
                         }
+
                         val quality = it.substringAfter("RESOLUTION=")
+                            .split(",")[0].split("\n")[0].substringAfter("x") + "p"
+
+                        val qualityTitle = it.substringAfter("RESOLUTION=")
                             .split(",")[0].split("\n")[0].substringAfter("x") +
                                 "p - Aud: ${audLang.getLocale()}$hardsub"
 
@@ -343,12 +354,12 @@ class YomirollProvider : MainAPI() {
                         try {
                             Video(
                                 videoUrl,
-                                quality,
+                                qualityTitle,
                                 videoUrl,
                                 subtitleTracks = if (hardsub.isNotBlank()) emptyList() else subsList,
                             )
                         } catch (_: Error) {
-                            Video(videoUrl, quality, videoUrl)
+                            Video(videoUrl, qualityTitle, videoUrl)
                         }
                     }
             }.getOrNull()
@@ -420,5 +431,156 @@ class YomirollProvider : MainAPI() {
 
         val response = tryParseJson<CrunchyrollToken>(client.newCall(request).execute().body.string())
         return mapOf("Authorization" to "${response?.tokenType} ${response?.accessToken}")
+    }
+
+    suspend fun invokeCrunchyroll(
+        aniId: Int? = null,
+        malId: Int? = null,
+        epsTitle: String? = null,
+        season: Int? = null,
+        episode: Int? = null,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        val id = getCrunchyrollId("${aniId ?: return}") ?: getCrunchyrollIdFromMalSync("${malId ?: return}") ?: return
+        val audioLocal = listOf(
+            "ja-JP",
+            PREF_AUD_DEFAULT,
+            PREF_AUD2_DEFAULT,
+            "en-US",
+            "zh-CN",
+        )
+        val headers = getCrunchyrollToken()
+        val seasonIdData = app.get("$crUrl/content/v2/cms/series/${id ?: return}/seasons", headers = headers)
+            .parsedSafe<CrunchyrollResponses>()?.data?.let { s ->
+                if (s.size == 1) {
+                    s.firstOrNull()
+                } else {
+                    s.find {
+                        when (epsTitle) {
+                            "One Piece" -> it.season_number == 13
+                            "Hunter x Hunter" -> it.season_number == 5
+                            else -> it.season_number == season
+                        }
+                    } ?: s.find { it.season_number?.plus(1) == season }
+                }
+            }
+        val seasonId = seasonIdData?.versions?.filter { it.audio_locale in audioLocal }
+            ?.map { it.guid to it.audio_locale } ?: listOf(seasonIdData?.id to "ja-JP")
+
+        seasonId.apmap { (sId, audioL) ->
+            val streamsLink =
+                app.get(
+                    "$crUrl/content/v2/cms/seasons/${sId ?: return@apmap}/episodes",
+                    headers = headers
+                ).parsedSafe<CrunchyrollResponses>()?.data?.find {
+                    it.title.equals(epsTitle, true) || it.slug_title.equals(
+                        epsTitle.createSlug(),
+                        true
+                    ) || it.episode_number == episode
+                }?.streams_link
+            val sources =
+                app.get(fixUrl(streamsLink ?: return@apmap, crUrl), headers = headers)
+                    .parsedSafe<CrunchyrollSourcesResponses>()
+
+            listOf(
+                "adaptive_hls",
+                "vo_adaptive_hls"
+            ).map { hls ->
+                val name = if (hls == "adaptive_hls") "Crunchyroll" else "Vrv"
+                val audio = if (audioL == "en-US") "English Dub" else if (audioL == PREF_AUD_DEFAULT || audioL == PREF_AUD2_DEFAULT) "Spanish Dub" else "Raw"
+                val source = sources?.data?.firstOrNull()?.let {
+                    if (hls == "adaptive_hls") it.adaptive_hls else it.vo_adaptive_hls
+                }
+                M3u8Helper.generateM3u8(
+                    "$name [$audio]",
+                    source?.get("")?.get("url") ?: return@map,
+                    "https://static.crunchyroll.com/"
+                ).forEach(callback)
+            }
+
+            sources?.meta?.subtitles?.map { sub ->
+                subtitleCallback.invoke(
+                    SubtitleFile(
+                        "${fixCrunchyrollLang(sub.key) ?: sub.key} [ass]",
+                        sub.value["url"] ?: return@map null
+                    )
+                )
+            }
+        }
+    }
+
+    private suspend fun getCrunchyrollId(aniId: String?): String? {
+        val query = """
+        query media(${'$'}id: Int, ${'$'}type: MediaType, ${'$'}isAdult: Boolean) {
+          Media(id: ${'$'}id, type: ${'$'}type, isAdult: ${'$'}isAdult) {
+            id
+            externalLinks {
+              id
+              site
+              url
+              type
+            }
+          }
+        }
+    """.trimIndent().trim()
+
+        val variables = mapOf(
+            "id" to aniId,
+            "isAdult" to false,
+            "type" to "ANIME",
+        )
+
+        val data = mapOf(
+            "query" to query,
+            "variables" to variables
+        ).toJson().toRequestBody(RequestBodyTypes.JSON.toMediaTypeOrNull())
+
+        val externalLinks = app.post(anilistAPI, requestBody = data)
+            .parsedSafe<AnilistResponses>()?.data?.Media?.externalLinks
+
+        return (externalLinks?.find { it.site == "VRV" }
+            ?: externalLinks?.find { it.site == "Crunchyroll" })?.url?.let {
+            Regex("series/(\\w+)/?").find(it)?.groupValues?.get(1)
+        }
+    }
+
+    private suspend fun getCrunchyrollIdFromMalSync(aniId: String?): String? {
+        val res = app.get("$malsyncAPI/mal/anime/$aniId").parsedSafe<MalSyncRes>()?.Sites
+        val vrv = res?.get("Vrv")?.map { it.value }?.firstOrNull()?.get("url")
+        val crunchyroll = res?.get("Vrv")?.map { it.value }?.firstOrNull()?.get("url")
+        val regex = Regex("series/(\\w+)/?")
+        return regex.find("$vrv")?.groupValues?.getOrNull(1) ?: regex.find("$crunchyroll")?.groupValues?.getOrNull(1)
+    }
+
+    private fun fixCrunchyrollLang(language: String?): String? {
+        return SubtitleHelper.fromTwoLettersToLanguage(language ?: return null)
+            ?: SubtitleHelper.fromTwoLettersToLanguage(language.substringBefore("-"))
+    }
+
+    private fun String?.createSlug(): String? {
+        return this?.replace(Regex("[^\\w\\s-]"), "")
+            ?.replace(" ", "-")
+            ?.replace(Regex("( – )|( -)|(- )|(--)"), "-")
+            ?.lowercase()
+    }
+
+    private fun fixUrl(url: String, domain: String): String {
+        if (url.startsWith("http")) {
+            return url
+        }
+        if (url.isEmpty()) {
+            return ""
+        }
+
+        val startsWithNoHttp = url.startsWith("//")
+        if (startsWithNoHttp) {
+            return "https:$url"
+        } else {
+            if (url.startsWith('/')) {
+                return domain + url
+            }
+            return "$domain/$url"
+        }
     }
 }
