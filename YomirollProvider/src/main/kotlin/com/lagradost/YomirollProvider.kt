@@ -302,15 +302,16 @@ class YomirollProvider : MainAPI() {
                 val audio = audioL.getLocale()
                 val source = streams?.data?.firstOrNull()?.let { src -> if (hls == "adaptive_hls") src.adaptive_hls else src.vo_adaptive_hls }
 
-                source?.map {
-                    val stream = tryParseJson<HlsLinks>(it.value.toString())
-                    val hardSub = stream?.hardsub_locale?.let { hs ->
-                        if (hs.isNotBlank()) " - HardSub: $hs" else ""
-                    }
+                M3u8Helper.generateM3u8(
+                    "$name [$audio]",
+                    source?.get("")?.get("url") ?: return@map,
+                    "https://static.crunchyroll.com/"
+                ).forEach(callback)
 
+                if (source.get(audioL)?.isNotEmpty() == true) {
                     M3u8Helper.generateM3u8(
-                        "$name [$audio] $hardSub",
-                        stream?.url ?: return@map /*source?.get("")?.get("url") ?: return@map*/,
+                        "$name [$audio] HardSub",
+                        source.get(audioL)?.get("url") ?: return@map,
                         "https://static.crunchyroll.com/"
                     ).forEach(callback)
                 }
