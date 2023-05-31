@@ -212,15 +212,14 @@ class YomirollProvider : MainAPI() {
         return episodes.data.sortedBy { it.episode_number }.mapNotNull EpisodeMap@{ ep ->
             Episode(
                 EpisodeData(
-                    ep.versions?.map { Pair(it.mediaId, it.audio_locale) }
-                        ?: listOf(
-                            Pair(
-                                ep.streams_link?.substringAfter("videos/")
-                                    ?.substringBefore("/streams")
-                                    ?: return@EpisodeMap null,
-                                ep.audio_locale,
-                            ),
+                    listOf(
+                        Pair(
+                            ep.streams_link?.substringAfter("videos/")
+                                ?.substringBefore("/streams")
+                                ?: return@EpisodeMap null,
+                            ep.audio_locale,
                         ),
+                    ),
                 ).toJson(),
                 name = ep.title,
                 episode = ep.episode_number.toInt(),
@@ -271,15 +270,7 @@ class YomirollProvider : MainAPI() {
         val episodeJson = parseJson<EpisodeData>(data);
         if (episodeJson.ids.isEmpty()) throw Exception("No IDs found for episode")
 
-        episodeJson.ids.filter {
-            it.second == PREF_AUD_DEFAULT
-                    || it.second == PREF_AUD2_DEFAULT
-                    || it.second == "ja-JP"
-                    || it.second == "en-US"
-                    || it.second == ""
-        }.sortedWith(
-            compareBy( { it.second.contains(PREF_AUD_DEFAULT) }, { it.second.contains(PREF_AUD2_DEFAULT) })
-        ).parallelMap {
+        episodeJson.ids.parallelMap {
             val (mediaId, audioL) = it
             val streams = app.get(
                 "https://beta-api.crunchyroll.com/content/v2/cms/videos/$mediaId/streams",
@@ -291,10 +282,33 @@ class YomirollProvider : MainAPI() {
                 "vo_adaptive_hls"
             ).map { hls ->
                 val name = "Crunchyroll" //if (hls == "adaptive_hls") "Crunchyroll" else "Vrv"
-                val audio = audioL.getLocale()
-                val source = streams?.data?.firstOrNull()?.let { src -> if (hls == "adaptive_hls") src.adaptive_hls else src.vo_adaptive_hls }
+                //val audio = audioL.getLocale()
+                val source = streams?.data?.firstOrNull()
+                    ?.let { src -> if (hls == "adaptive_hls") src.adaptive_hls else src.vo_adaptive_hls }
 
-                M3u8Helper.generateM3u8(
+                source?.entries?.filter {
+                    it.key.getLocale() == PREF_AUD_DEFAULT
+                            || it.key.getLocale() == PREF_AUD2_DEFAULT
+                            || it.key.getLocale() == "ja-JP"
+                            || it.key.getLocale() == "en-US"
+                            || it.key.getLocale() == ""
+                }?.sortedWith(
+                    compareBy(
+                        { it.key.getLocale().contains(PREF_AUD_DEFAULT) },
+                        { it.value.get("hardsub_locale")?.isNotBlank() },
+                        { it.key.getLocale().contains(PREF_AUD2_DEFAULT) }
+                    )
+                )?.apmap {
+                    val audio = it.key.getLocale()
+                    val url = it.value.get("url")
+                    M3u8Helper.generateM3u8(
+                        "$name [$audio]",
+                        url ?: return@apmap,
+                        "https://static.crunchyroll.com/"
+                    ).forEach(callback)
+                }
+
+                /*M3u8Helper.generateM3u8(
                     "$name [$audio]",
                     source?.get("")?.get("url") ?: return@map,
                     "https://static.crunchyroll.com/"
@@ -306,7 +320,7 @@ class YomirollProvider : MainAPI() {
                         source.get(audioL)?.get("url") ?: return@map,
                         "https://static.crunchyroll.com/"
                     ).forEach(callback)
-                }
+                }*/
             }
 
             streams?.meta?.subtitles?.map { sub ->
