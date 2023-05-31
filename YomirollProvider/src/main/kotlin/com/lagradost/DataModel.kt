@@ -152,4 +152,5 @@ data class CrunchyrollSourcesResponses(
 
 data class CrunchyrollMeta(
     @JsonProperty("subtitles") val subtitles: HashMap<String, HashMap<String, String>>? = hashMapOf(),
+    @JsonProperty("audio_locale") val audio_locale: String? = null,
 )

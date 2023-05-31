@@ -212,14 +212,15 @@ class YomirollProvider : MainAPI() {
         return episodes.data.sortedBy { it.episode_number }.mapNotNull EpisodeMap@{ ep ->
             Episode(
                 EpisodeData(
-                    listOf(
-                        Pair(
-                            ep.streams_link?.substringAfter("videos/")
-                                ?.substringBefore("/streams")
-                                ?: return@EpisodeMap null,
-                            ep.audio_locale,
-                        ),
-                    ),
+                    ep.versions?.map { Pair(it.mediaId, it.audio_locale) }
+                        ?: listOf(
+                            Pair(
+                                ep.streams_link?.substringAfter("videos/")
+                                    ?.substringBefore("/streams")
+                                    ?: return@EpisodeMap null,
+                                ep.audio_locale,
+                            )
+                        )
                 ).toJson(),
                 name = ep.title,
                 episode = ep.episode_number.toInt(),
@@ -277,6 +278,7 @@ class YomirollProvider : MainAPI() {
                 headers = getCrunchyrollToken()
             ).parsedSafe<CrunchyrollSourcesResponses>()
 
+            val audLang = audioL.ifBlank { streams?.meta?.audio_locale } ?: "ja-JP"
             listOf(
                 "adaptive_hls",
                 "vo_adaptive_hls"
@@ -299,8 +301,9 @@ class YomirollProvider : MainAPI() {
                         { it.key.contains(PREF_AUD2_DEFAULT) }
                     )
                 )?.apmap {
-                    val audio = it.key.ifEmpty { "ja-JP" }.getLocale()
+                    val audio = it.key.getLocale().ifEmpty { audLang }
                     val url = it.value.get("url")
+
                     val hardSub = if(it.value.get("hardsub_locale")?.isNotBlank() == true) " [HardSub]" else ""
                     M3u8Helper.generateM3u8(
                         "$name [$audio]$hardSub",
