@@ -287,22 +287,23 @@ class YomirollProvider : MainAPI() {
                     ?.let { src -> if (hls == "adaptive_hls") src.adaptive_hls else src.vo_adaptive_hls }
 
                 source?.entries?.filter {
-                    it.key.getLocale() == PREF_AUD_DEFAULT
-                            || it.key.getLocale() == PREF_AUD2_DEFAULT
-                            || it.key.getLocale() == "ja-JP"
-                            || it.key.getLocale() == "en-US"
-                            || it.key.getLocale() == ""
+                    it.key == PREF_AUD_DEFAULT
+                            || it.key == PREF_AUD2_DEFAULT
+                            || it.key == "ja-JP"
+                            || it.key == "en-US"
+                            || it.key == ""
                 }?.sortedWith(
                     compareBy(
-                        { it.key.getLocale().contains(PREF_AUD_DEFAULT) },
+                        { it.key.contains(PREF_AUD_DEFAULT) },
                         { it.value.get("hardsub_locale")?.isNotBlank() },
-                        { it.key.getLocale().contains(PREF_AUD2_DEFAULT) }
+                        { it.key.contains(PREF_AUD2_DEFAULT) }
                     )
                 )?.apmap {
                     val audio = it.key.getLocale()
                     val url = it.value.get("url")
+                    val hardSub = if(it.value.get("hardsub_locale")?.isNotBlank() == true) " [HardSub]" else ""
                     M3u8Helper.generateM3u8(
-                        "$name [$audio]",
+                        "$name [$audio]$hardSub",
                         url ?: return@apmap,
                         "https://static.crunchyroll.com/"
                     ).forEach(callback)
