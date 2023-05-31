@@ -301,10 +301,9 @@ class YomirollProvider : MainAPI() {
                         { it.key.contains(PREF_AUD2_DEFAULT) }
                     )
                 )?.apmap {
-                    val audio = it.key.getLocale().ifEmpty { audLang }
+                    val audio = it.key.getLocale().ifEmpty { audLang.getLocale() }
                     val url = it.value.get("url")
-
-                    val hardSub = if(it.value.get("hardsub_locale")?.isNotBlank() == true) " [HardSub]" else ""
+                    val hardSub = if(it.value.get("hardsub_locale")?.isNotBlank() == true) " [HardSub]" else " [SoftSub]"
                     M3u8Helper.generateM3u8(
                         "$name [$audio]$hardSub",
                         url ?: return@apmap,
