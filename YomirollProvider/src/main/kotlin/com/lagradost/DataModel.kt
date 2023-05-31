@@ -129,7 +129,7 @@ data class EpisodeResult(
 }
 
 data class EpisodeData(
-    val ids: List<Pair<String, String>>,
+    val ids: List<Pair<String, String>>
 )
 
 data class VideoStreams(
