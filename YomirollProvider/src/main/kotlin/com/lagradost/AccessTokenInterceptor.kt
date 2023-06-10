@@ -147,7 +147,7 @@ class AccessTokenInterceptor(private val crUrl: String) : Interceptor {
 
 
     companion object {
-        private val DateFormatter by lazy {
+        val DateFormatter by lazy {
             SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH)
         }
     }

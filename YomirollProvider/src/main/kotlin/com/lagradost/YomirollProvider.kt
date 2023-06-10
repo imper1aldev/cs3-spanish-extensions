@@ -1,12 +1,12 @@
 package com.lagradost
 
+import android.net.Uri
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.M3u8Helper
-import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.nicehttp.requestCreator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -21,6 +21,11 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import okhttp3.Headers
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.text.MessageFormat
 
 class YomirollProvider : MainAPI() {
 
@@ -208,7 +213,7 @@ class YomirollProvider : MainAPI() {
     private suspend fun getEpisodes(seasonData: SeasonResult.Season): List<Episode> {
         val episodes = app.get(
             "$crApiUrl/cms/seasons/${seasonData.id}/episodes",
-            interceptor = tokenInterceptor
+            headers = getCruncToken()
         ).parsed<EpisodeResult>()
         return episodes.data.sortedBy { it.episode_number }.mapNotNull EpisodeMap@{ ep ->
             Episode(
@@ -276,7 +281,7 @@ class YomirollProvider : MainAPI() {
             val (mediaId, audioL) = it
             val streams = app.get(
                 "https://beta-api.crunchyroll.com/content/v2/cms/videos/$mediaId/streams",
-                interceptor = tokenInterceptor
+                headers = getCruncToken()
             ).parsedSafe<CrunchyrollSourcesResponses>()
 
             val audLang = audioL.ifBlank { streams?.meta?.audio_locale } ?: "ja-JP"
@@ -319,7 +324,7 @@ class YomirollProvider : MainAPI() {
     }
 
     companion object {
-        private val DateFormatter by lazy {
+        public val DateFormatter by lazy {
             SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH)
         }
 
@@ -386,4 +391,87 @@ class YomirollProvider : MainAPI() {
         return mapOf("Authorization" to "${response?.tokenType} ${response?.accessToken}")
     }
 
+    private fun getRequest(): Request {
+        val client = OkHttpClient().newBuilder().build()
+        val getRequest = Request.Builder()
+            .url("https://raw.githubusercontent.com/Samfun75/File-host/main/aniyomi/refreshToken.txt")
+            .build()
+        val refreshTokenResp = client.newCall(getRequest).execute()
+        val refreshToken = refreshTokenResp.body.string().replace("[\n\r]".toRegex(), "")
+        val headers = Headers.Builder()
+            .add("Content-Type", "application/x-www-form-urlencoded")
+            .add(
+                "Authorization",
+                "Basic a3ZvcGlzdXZ6Yy0teG96Y21kMXk6R21JSTExenVPVnRnTjdlSWZrSlpibzVuLTRHTlZ0cU8=",
+            )
+            .build()
+        val postBody =
+            "grant_type=refresh_token&refresh_token=$refreshToken&scope=offline_access".toRequestBody(
+                "application/x-www-form-urlencoded".toMediaType(),
+            )
+
+        return Request.Builder()
+            .url("$crUrl/auth/v1/token")
+            .headers(headers)
+            .post(postBody)
+            .build()
+    }
+    private fun getCruncToken(useProxy: Boolean = true): Map<String, String> {
+            val client = OkHttpClient().newBuilder().let {
+                if (useProxy) {
+                    Authenticator.setDefault(
+                        object : Authenticator() {
+                            override fun getPasswordAuthentication(): PasswordAuthentication {
+                                return PasswordAuthentication("crunblocker", "crunblocker".toCharArray())
+                            }
+                        },
+                    )
+                    it.proxy(
+                        Proxy(
+                            Proxy.Type.SOCKS,
+                            InetSocketAddress("cr-unblocker.us.to", 1080),
+                        ),
+                    )
+                        .build()
+                } else {
+                    it.build()
+                }
+            }
+            val response = client.newCall(getRequest()).execute()
+            val parsedJson = parseJson<AccessToken>(response.body.string())
+
+            val getRequest = Request.Builder()
+                .url("$crUrl/index/v2")
+                .build()
+            val policy = client.newCall(newRequestWithAccessToken(getRequest, parsedJson)).execute()
+            val policyJson = parseJson<Policy>(policy.body.string())
+            val allTokens = AccessToken(
+                parsedJson.access_token,
+                parsedJson.token_type,
+                policyJson.cms.policy,
+                policyJson.cms.signature,
+                policyJson.cms.key_pair_id,
+                policyJson.cms.bucket,
+                AccessTokenInterceptor.DateFormatter.parse(policyJson.cms.expires)?.time,
+            )
+        return mapOf("Authorization" to "${allTokens?.token_type} ${allTokens?.access_token}")
+    }
+    private fun newRequestWithAccessToken(request: Request, tokenData: AccessToken): Request {
+        return request.newBuilder().let {
+            it.header("authorization", "${tokenData.token_type} ${tokenData.access_token}")
+            val requestUrl = Uri.decode(request.url.toString())
+            if (requestUrl.contains("/cms/v2")) {
+                it.url(
+                    MessageFormat.format(
+                        requestUrl,
+                        tokenData.bucket,
+                        tokenData.policy,
+                        tokenData.signature,
+                        tokenData.key_pair_id,
+                    ),
+                )
+            }
+            it.build()
+        }
+    }
 }
