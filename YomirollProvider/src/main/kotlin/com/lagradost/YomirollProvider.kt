@@ -1,13 +1,12 @@
 package com.lagradost
 
-import android.preference.PreferenceManager
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.AcraApplication.Companion.context
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.M3u8Helper
+import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.nicehttp.requestCreator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -17,6 +16,7 @@ import java.net.Authenticator
 import java.net.InetSocketAddress
 import java.net.PasswordAuthentication
 import java.net.Proxy
+import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.async
@@ -27,14 +27,17 @@ class YomirollProvider : MainAPI() {
     override var mainUrl = "https://www.crunchyroll.com"
     private val crUrl = "https://beta-api.crunchyroll.com"
     private val crApiUrl = "$crUrl/content/v2"
+    private val id: Long = 7463514907068706782
+
     override var name = "Yomiroll"
     override var lang = "es"
     override val hasMainPage = true
     override val hasChromecastSupport = true
     override val hasDownloadSupport = true
-    private val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
 
-    private val tokenInterceptor by lazy { AccessTokenInterceptor(crUrl, sharedPreferences) }
+    private val tokenInterceptor by lazy { AccessTokenInterceptor(crUrl) }
+
+    private val df by lazy { DecimalFormat("0.#") }
     private fun String?.isNumeric() = this?.toDoubleOrNull() != null
     private fun parseDate(dateStr: String): Long {
         return runCatching { DateFormatter.parse(dateStr)?.time }.getOrNull() ?: 0L
