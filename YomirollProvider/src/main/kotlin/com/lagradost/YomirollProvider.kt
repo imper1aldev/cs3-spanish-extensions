@@ -284,49 +284,24 @@ class YomirollProvider : MainAPI() {
                 "adaptive_hls",
                 "vo_adaptive_hls"
             ).map { hls ->
-                val name = "Crunchyroll" //if (hls == "adaptive_hls") "Crunchyroll" else "Vrv"
-                //val audio = audioL.getLocale()
-                val source = streams?.data?.firstOrNull()
-                    ?.let { src -> if (hls == "adaptive_hls") src.adaptive_hls else src.vo_adaptive_hls }
-
-                source?.entries?.filter {
-                    it.key == PREF_AUD_DEFAULT
-                            || it.key == PREF_AUD2_DEFAULT
-                            || it.key == "ja-JP"
-                            || it.key == "en-US"
-                            || it.key == ""
-                }?.sortedWith(
+                val source = streams?.data?.firstOrNull()?.let { src -> if (hls == "adaptive_hls") src.adaptive_hls else src.vo_adaptive_hls }
+                source?.entries?.sortedWith(
                     compareBy(
                         { it.key.contains(PREF_AUD_DEFAULT) },
-                        { it.value.get("hardsub_locale")?.isNotBlank() },
+                        { it.value.get("hardsub_locale")?.isNotBlank() == true },
                         { it.key.contains(PREF_AUD2_DEFAULT) }
                     )
                 )?.apmap { stream ->
                     val url = stream.value.get("url")
-                    //val audio = stream.key.getLocale().ifEmpty { audLang.getLocale() }
-                    val hardsub = stream.value.get("hardsub_locale")?.let { hs ->
+                    val hardSub = stream?.value?.get("hardsub_locale")?.let { hs ->
                         if (hs.isNotBlank()) " - HardSub: $hs" else ""
                     }
                     M3u8Helper.generateM3u8(
-                        "$name [${audLang.getLocale()}]$hardsub",
+                        "${audLang.getLocale()}$hardSub",
                         url ?: return@apmap,
-                        "https://static.crunchyroll.com/"
+                        ""
                     ).forEach(callback)
                 }
-
-                /*M3u8Helper.generateM3u8(
-                    "$name [$audio]",
-                    source?.get("")?.get("url") ?: return@map,
-                    "https://static.crunchyroll.com/"
-                ).forEach(callback)
-
-                if (source.get(audioL)?.isNotEmpty() == true) {
-                    M3u8Helper.generateM3u8(
-                        "$name [$audio] HardSub",
-                        source.get(audioL)?.get("url") ?: return@map,
-                        "https://static.crunchyroll.com/"
-                    ).forEach(callback)
-                }*/
             }
 
             streams?.meta?.subtitles?.map { sub ->
