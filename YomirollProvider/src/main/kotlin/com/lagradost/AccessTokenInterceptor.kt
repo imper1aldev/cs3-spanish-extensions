@@ -1,7 +1,9 @@
 package com.lagradost
 
+import android.content.SharedPreferences
 import android.net.Uri
  import com.lagradost.cloudstream3.utils.AppUtils.parseJson
+import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import okhttp3.Headers
 import okhttp3.Interceptor
@@ -20,7 +22,10 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 
-class AccessTokenInterceptor(private val crUrl: String) : Interceptor {
+class AccessTokenInterceptor(
+        private val crUrl: String,
+        private val preferences: SharedPreferences
+    ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val accessTokenN = getAccessToken()
@@ -67,12 +72,22 @@ class AccessTokenInterceptor(private val crUrl: String) : Interceptor {
     }
 
     fun getAccessToken(force: Boolean = false): AccessToken {
-            return synchronized(this) {
+        val token = preferences.getString(TOKEN_PREF_KEY, null)
+        return if (!force && token != null) {
+            token.toAccessToken()
+        } else {
+            synchronized(this) {
                 refreshAccessToken(true)
             }
+        }
+    }
+
+    fun removeToken() {
+        preferences.edit().putString(TOKEN_PREF_KEY, null).apply()
     }
 
     private fun refreshAccessToken(useProxy: Boolean = true): AccessToken {
+        removeToken()
         val client = OkHttpClient().newBuilder().let {
             if (useProxy) {
                 Authenticator.setDefault(
@@ -114,7 +129,16 @@ class AccessTokenInterceptor(private val crUrl: String) : Interceptor {
             DateFormatter.parse(policyJson.cms.expires)?.time,
         )
 
+        preferences.edit().putString(TOKEN_PREF_KEY, allTokens.toJsonString()).apply()
         return allTokens
+    }
+
+    private fun AccessToken.toJsonString(): String {
+        return this.toJson()
+    }
+
+    private fun String.toAccessToken(): AccessToken {
+        return parseJson<AccessToken>(this)
     }
 
     private fun getRequest(): Request {
@@ -147,6 +171,7 @@ class AccessTokenInterceptor(private val crUrl: String) : Interceptor {
 
 
     companion object {
+        private const val TOKEN_PREF_KEY = "access_token_data"
         private val DateFormatter by lazy {
             SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH)
         }
