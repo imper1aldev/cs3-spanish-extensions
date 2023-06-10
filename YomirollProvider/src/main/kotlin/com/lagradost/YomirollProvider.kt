@@ -303,34 +303,15 @@ class YomirollProvider : MainAPI() {
                     )
                 )?.apmap { stream ->
                     val url = stream.value.get("url")
-                    val playlist = app.get(url ?: "")
-                    playlist.okhttpResponse.body.toString().substringAfter("#EXT-X-STREAM-INF:").split("#EXT-X-STREAM-INF:").map {
-                        val hardsub = stream.value.get("hardsub_locale")?.let { hs ->
-                            if (hs.isNotBlank()) " - HardSub: $hs" else ""
-                        }
-                        val quality = it.substringAfter("RESOLUTION=")
-                            .split(",")[0].split("\n")[0].substringAfter("x") +
-                                "p - Aud: ${audLang.getLocale()}$hardsub"
-                        val videoUrl = it.substringAfter("\n").substringBefore("\n")
-
-                        callback.invoke(
-                            ExtractorLink(
-                                this.name,
-                                quality,
-                                videoUrl,
-                                referer = "https://static.crunchyroll.com/",
-                                quality = Qualities.Unknown.value
-                            )
-                        )
+                    //val audio = stream.key.getLocale().ifEmpty { audLang.getLocale() }
+                    val hardsub = stream.value.get("hardsub_locale")?.let { hs ->
+                        if (hs.isNotBlank()) " - HardSub: $hs" else ""
                     }
-
-                    /*val audio = stream.key.getLocale().ifEmpty { audLang.getLocale() }
-                    val hardSub = if(stream.value.get("hardsub_locale")?.isNotBlank() == true) " [HardSub]" else " [SoftSub]"
                     M3u8Helper.generateM3u8(
-                        "$name [$audio]$hardSub",
+                        "$name [$audLang]$hardsub",
                         url ?: return@apmap,
                         "https://static.crunchyroll.com/"
-                    ).forEach(callback)*/
+                    ).forEach(callback)
                 }
 
                 /*M3u8Helper.generateM3u8(
