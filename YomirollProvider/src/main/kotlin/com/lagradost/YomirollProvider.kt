@@ -308,7 +308,7 @@ class YomirollProvider : MainAPI() {
                         if (hs.isNotBlank()) " - HardSub: $hs" else ""
                     }
                     M3u8Helper.generateM3u8(
-                        "$name [$audLang]$hardsub",
+                        "$name [${audLang.getLocale()}]$hardsub",
                         url ?: return@apmap,
                         "https://static.crunchyroll.com/"
                     ).forEach(callback)
