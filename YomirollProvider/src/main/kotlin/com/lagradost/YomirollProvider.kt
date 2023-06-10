@@ -71,7 +71,7 @@ class YomirollProvider : MainAPI() {
         val url = request.data.replace("{start}", start)
         val position = request.data.toHttpUrl().queryParameter("start")?.toIntOrNull() ?: 0
 
-        val parsed = app.get(url, interceptor = tokenInterceptor).parsed<AnimeResult>()
+        val parsed = app.get(url, headers = getCrunchyrollToken()).parsed<AnimeResult>()
         val hasNextPage = position + 36 < parsed.total
 
         val home = parsed.data.map {
@@ -121,7 +121,7 @@ class YomirollProvider : MainAPI() {
             } else {
                 "$crApiUrl/cms/movie_listings/${anime.id}?locale=en-US"
             },
-            interceptor = tokenInterceptor
+            headers = getCrunchyrollToken()
         ).parsed<AnimeResult>().data.first()
 
         val title = anime.title
@@ -174,7 +174,7 @@ class YomirollProvider : MainAPI() {
             } else {
                 "$crApiUrl/cms/movie_listings/${anime.id}/movies"
             },
-            interceptor = tokenInterceptor
+            headers = getCrunchyrollToken()
         ).parsed<SeasonResult>()
 
         val chunkSize = Runtime.getRuntime().availableProcessors()
@@ -208,7 +208,7 @@ class YomirollProvider : MainAPI() {
     private suspend fun getEpisodes(seasonData: SeasonResult.Season): List<Episode> {
         val episodes = app.get(
             "$crApiUrl/cms/seasons/${seasonData.id}/episodes",
-            interceptor = tokenInterceptor
+            headers = getCrunchyrollToken()
         ).parsed<EpisodeResult>()
         return episodes.data.sortedBy { it.episode_number }.mapNotNull EpisodeMap@{ ep ->
             Episode(
@@ -288,18 +288,19 @@ class YomirollProvider : MainAPI() {
                 source?.entries?.sortedWith(
                     compareBy(
                         { it.key.contains(PREF_AUD_DEFAULT) },
-                        { it.value.get("hardsub_locale")?.isNotBlank() == true },
-                        { it.key.contains(PREF_AUD2_DEFAULT) }
+                        { it.key.contains(PREF_AUD2_DEFAULT) },
+                        { it.key.contains("ja-JP") },
+                        { it.key.contains("") }
                     )
                 )?.apmap { stream ->
-                    val url = stream.value.get("url")
-                    val hardSub = stream?.value?.get("hardsub_locale")?.let { hs ->
+                    val url = stream.value["url"]
+                    val hardSub = stream.value["hardsub_locale"]?.let { hs ->
                         if (hs.isNotBlank()) " - HardSub: $hs" else ""
                     }
                     M3u8Helper.generateM3u8(
                         "${audLang.getLocale()}$hardSub",
                         url ?: return@apmap,
-                        ""
+                        "https://static.crunchyroll.com/"
                     ).forEach(callback)
                 }
             }
