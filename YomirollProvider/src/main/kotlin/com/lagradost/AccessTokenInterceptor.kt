@@ -68,7 +68,7 @@ class AccessTokenInterceptor(private val crUrl: String) : Interceptor {
 
     fun getAccessToken(force: Boolean = false): AccessToken {
             return synchronized(this) {
-                refreshAccessToken(false)
+                refreshAccessToken(true)
             }
     }
 
