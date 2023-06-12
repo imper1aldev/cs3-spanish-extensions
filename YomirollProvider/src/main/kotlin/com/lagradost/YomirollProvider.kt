@@ -281,7 +281,8 @@ class YomirollProvider : MainAPI() {
             val (mediaId, audioL) = it
             val streams = app.get(
                 "https://beta-api.crunchyroll.com/content/v2/cms/videos/$mediaId/streams",
-                headers = getCrunchyrollToken()
+                interceptor = tokenInterceptor,
+                timeout = 20000
             ).parsedSafe<CrunchyrollSourcesResponses>()
 
             val audLang = audioL.ifBlank { streams?.meta?.audio_locale } ?: "ja-JP"
