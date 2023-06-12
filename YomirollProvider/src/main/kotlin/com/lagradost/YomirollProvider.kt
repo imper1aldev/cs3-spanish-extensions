@@ -76,7 +76,7 @@ class YomirollProvider : MainAPI() {
         val url = request.data.replace("{start}", start)
         val position = request.data.toHttpUrl().queryParameter("start")?.toIntOrNull() ?: 0
 
-        val parsed = app.get(url, interceptor = tokenInterceptor).parsed<AnimeResult>()
+        val parsed = app.get(url, headers = getCruncToken()).parsed<AnimeResult>()
         val hasNextPage = position + 36 < parsed.total
 
         val home = parsed.data.map {
@@ -126,7 +126,7 @@ class YomirollProvider : MainAPI() {
             } else {
                 "$crApiUrl/cms/movie_listings/${anime.id}?locale=en-US"
             },
-            interceptor = tokenInterceptor
+            headers = getCruncToken()
         ).parsed<AnimeResult>().data.first()
 
         val title = anime.title
@@ -179,7 +179,7 @@ class YomirollProvider : MainAPI() {
             } else {
                 "$crApiUrl/cms/movie_listings/${anime.id}/movies"
             },
-            interceptor = tokenInterceptor
+            headers = getCruncToken()
         ).parsed<SeasonResult>()
 
         val chunkSize = Runtime.getRuntime().availableProcessors()
@@ -290,12 +290,16 @@ class YomirollProvider : MainAPI() {
                 "vo_adaptive_hls"
             ).map { hls ->
                 val source = streams?.data?.firstOrNull()?.let { src -> if (hls == "adaptive_hls") src.adaptive_hls else src.vo_adaptive_hls }
-                source?.entries?.sortedWith(
+                source?.entries?.filter {
+                    it.key.contains(PREF_AUD_DEFAULT) || it.key.contains(PREF_AUD2_DEFAULT) || it.key.contains("ja-JP") || it.key.contains("es-ES")
+                            || it.key.contains("en-US") || it.key == ""
+                }?.sortedWith(
                     compareBy(
                         { it.key.contains(PREF_AUD_DEFAULT) },
                         { it.key.contains(PREF_AUD2_DEFAULT) },
                         { it.key.contains("ja-JP") },
-                        { it.key.contains("") }
+                        { it.key.contains("es-ES") },
+                        { it.key.contains("en-US") }
                     )
                 )?.apmap { stream ->
                     val url = stream.value["url"]
