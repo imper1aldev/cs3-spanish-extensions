@@ -1,10 +1,17 @@
 package com.lagradost
 
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.network.toWebResourceResponse
+import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.Qualities
-import java.util.*
 import com.lagradost.cloudstream3.utils.M3u8Helper.Companion.generateM3u8
+import com.lagradost.cloudstream3.utils.Qualities
+import okhttp3.FormBody
+import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import java.util.*
+
 
 class HentaiLAProvider : MainAPI() {
 
@@ -114,59 +121,65 @@ class HentaiLAProvider : MainAPI() {
             val a = script.data().substringAfter("'a', '").substringBefore("'")
             val b = script.data().substringAfter("'b', '").substringBefore("'")
 
-            val playerHeaders = mapOf(
-                    "authority" to "hentaila.tv",
-                    "accept" to "*/*",
-                    "accept-language" to "en-US,en;q=0.9",
-                    "content-type" to "multipart/form-data; boundary=----WebKitFormBoundarybab9W9OlAvbOUs9J",
-                    "origin" to "https://hentaila.tv",
-                    "user-agent" to USER_AGENT,
-                    "sec-ch-ua" to "\"Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Opera\";v=\"102\"",
-                    "sec-ch-ua-mobile" to "?0",
-                    "sec-fetch-dest" to "empty",
-                    "sec-fetch-mode" to "cors",
-                    "sec-fetch-site" to "same-origin",
-            )
-            val urlRequest = "https://hentaila.tv/wp-content/plugins/player-logic/api.php"
-            val hlsJson = app.post(
-                    urlRequest,
-                    headers = playerHeaders,
-                    data = mapOf(
-                            Pair("action", action),
-                            Pair("a", a),
-                            Pair("b", b)
-                    )
-            )
-            callback.invoke(
-                    ExtractorLink(
-                            this.name,
-                            this.name,
-                            hlsJson.document.body().text(),
-                            referer = "",
-                            quality = Qualities.Unknown.value
-                    )
-            )
+            val formBody = FormBody.Builder()
+                    .add("action", "zarat_get_data_player_ajax")
+                    .add("a", a)
+                    .add("b", b)
+                    .build()
 
-            hlsJson.parsed<HlsJson>().data.sources.apmap { hls ->
-                generateM3u8(
-                        this.name,
-                        hls.src ?: "",
-                        "",
-                        headers = mapOf(
-                                "Accept" to "*/*",
-                                "Accept-Encoding" to "gzip, deflate, br",
-                                "Accept-Language" to "en-US,en;q=0.9",
-                                "Connection" to "keep-alive",
-                                "Host" to "master-es.cyou",
-                                "Origin" to "https://hentaila.tv",
-                                "Sec-Fetch-Dest" to "empty",
-                                "Sec-Fetch-Mode" to "cors",
-                                "Sec-Fetch-Site" to "cross-site",
-                                "User-Agent" to USER_AGENT,
-                                "sec-ch-ua" to "\"Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Opera\";v=\"102\"",
-                                "sec-ch-ua-mobile" to "?0"
-                        )
-                ).forEach(callback)
+            val request = Request.Builder()
+                    .url("https://hentaila.tv/wp-content/plugins/player-logic/api.php")
+                    .post(formBody)
+                    .header("authority", "hentaila.tv")
+                    .header("origin", "https://hentaila.tv")
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .build()
+
+            app.baseClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    /*val hlsJson = app.post(
+                            urlRequest,
+                            headers = request.headers.toMap(),
+                            data = mapOf(
+                                    Pair("action", action),
+                                    Pair("a", a),
+                                    Pair("b", b)
+                            ),
+                            requestBody = formBody
+                    )*/
+                    val bodyText = request.body.toString().substringAfter("<body>").substringBefore("</body>").trim()
+                    callback.invoke(
+                            ExtractorLink(
+                                    this.name,
+                                    "Prueba Json",
+                                    bodyText,
+                                    referer = "",
+                                    quality = Qualities.Unknown.value
+                            )
+                    )
+
+                    parseJson<HlsJson>(bodyText).data.sources.apmap { hls ->
+                        generateM3u8(
+                                this.name,
+                                hls.src?.replace("&amp;", "&") ?: "",
+                                "",
+                                headers = mapOf(
+                                        "Accept" to "*/*",
+                                        "Accept-Encoding" to "gzip, deflate, br",
+                                        "Accept-Language" to "en-US,en;q=0.9",
+                                        "Connection" to "keep-alive",
+                                        "Host" to "master-es.cyou",
+                                        "Origin" to "https://hentaila.tv",
+                                        "Sec-Fetch-Dest" to "empty",
+                                        "Sec-Fetch-Mode" to "cors",
+                                        "Sec-Fetch-Site" to "cross-site",
+                                        "User-Agent" to USER_AGENT,
+                                        "sec-ch-ua" to "\"Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Opera\";v=\"102\"",
+                                        "sec-ch-ua-mobile" to "?0"
+                                )
+                        ).forEach(callback)
+                    }
+                }
             }
         }
         return true
