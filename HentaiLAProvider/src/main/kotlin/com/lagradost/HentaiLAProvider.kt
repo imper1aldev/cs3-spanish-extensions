@@ -147,7 +147,7 @@ class HentaiLAProvider : MainAPI() {
                             ),
                             requestBody = formBody
                     )*/
-                    val bodyText = request.body.toString().substringAfter("<body>").substringBefore("</body>").trim()
+                    val bodyText = response.body.toString().substringAfter("<body>").substringBefore("</body>").trim()
                     callback.invoke(
                             ExtractorLink(
                                     this.name,
