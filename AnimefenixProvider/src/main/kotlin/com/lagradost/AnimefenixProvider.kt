@@ -12,7 +12,7 @@ import java.util.*
 
 class AnimefenixProvider:MainAPI() {
 
-    override var mainUrl = "https://animefenix.com"
+    override var mainUrl = "https://animefenix.tv"
     override var name = "Animefenix"
     override var lang = "es"
     override val hasMainPage = true

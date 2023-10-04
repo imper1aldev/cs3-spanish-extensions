@@ -213,7 +213,7 @@ class YomirollProvider : MainAPI() {
     private suspend fun getEpisodes(seasonData: SeasonResult.Season): List<Episode> {
         val episodes = app.get(
             "$crApiUrl/cms/seasons/${seasonData.id}/episodes",
-            headers = getCrunchyrollToken()
+                interceptor = tokenInterceptor
         ).parsed<EpisodeResult>()
         return episodes.data.sortedBy { it.episode_number }.mapNotNull EpisodeMap@{ ep ->
             Episode(
@@ -281,7 +281,7 @@ class YomirollProvider : MainAPI() {
             val (mediaId, audioL) = it
             val streams = app.get(
                 "https://beta-api.crunchyroll.com/content/v2/cms/videos/$mediaId/streams",
-                headers = getCrunchyrollToken(),
+                interceptor = tokenInterceptor,
                 timeout = 20000
             ).parsedSafe<CrunchyrollSourcesResponses>()
 
