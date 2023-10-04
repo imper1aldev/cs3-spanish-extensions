@@ -128,8 +128,26 @@ class HentaiLAProvider : MainAPI() {
                     "sec-fetch-site" to "same-origin",
             )
             val urlRequest = "https://hentaila.tv/wp-content/plugins/player-logic/api.php"
-            val hlsJson = app.post(urlRequest, headers = playerHeaders, data = mapOf("action" to action, "a" to a, "b" to b)).parsed<HlsJson>()
-            hlsJson.data.sources.filter { it.src!!.isEmpty() }.apmap { hls ->
+            val hlsJson = app.post(
+                    urlRequest,
+                    headers = playerHeaders,
+                    data = mapOf(
+                            Pair("action", action),
+                            Pair("a", a),
+                            Pair("b", b)
+                    )
+            )
+            callback.invoke(
+                    ExtractorLink(
+                            this.name,
+                            this.name,
+                            hlsJson.document.body().text(),
+                            referer = "",
+                            quality = Qualities.Unknown.value
+                    )
+            )
+
+            hlsJson.parsed<HlsJson>().data.sources.apmap { hls ->
                 generateM3u8(
                         this.name,
                         hls.src ?: "",
