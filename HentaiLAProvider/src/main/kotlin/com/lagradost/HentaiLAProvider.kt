@@ -151,7 +151,7 @@ class HentaiLAProvider : MainAPI() {
                     )
             )
 
-            parseJson<HlsJson>(bodyTextbodyTextbodyTextbodyText).data.sources.apmap { hls ->
+            parseJson<HlsJson>(bodyText).data.sources.apmap { hls ->
                 generateM3u8(
                         this.name,
                         hls.src?.replace("&amp;", "&") ?: "",
