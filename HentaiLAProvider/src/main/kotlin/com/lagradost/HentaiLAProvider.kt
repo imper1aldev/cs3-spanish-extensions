@@ -135,51 +135,42 @@ class HentaiLAProvider : MainAPI() {
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .build()
 
-            app.baseClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    /*val hlsJson = app.post(
-                            urlRequest,
-                            headers = request.headers.toMap(),
-                            data = mapOf(
-                                    Pair("action", action),
-                                    Pair("a", a),
-                                    Pair("b", b)
-                            ),
-                            requestBody = formBody
-                    )*/
-                    val bodyText = response.body.toString().substringAfter("<body>").substringBefore("</body>").trim()
-                    callback.invoke(
-                            ExtractorLink(
-                                    this.name,
-                                    "Prueba Json",
-                                    bodyText,
-                                    referer = "",
-                                    quality = Qualities.Unknown.value
-                            )
-                    )
+            val player = app.baseClient.newCall(request).execute()
 
-                    parseJson<HlsJson>(bodyText).data.sources.apmap { hls ->
-                        generateM3u8(
-                                this.name,
-                                hls.src?.replace("&amp;", "&") ?: "",
-                                "",
-                                headers = mapOf(
-                                        "Accept" to "*/*",
-                                        "Accept-Encoding" to "gzip, deflate, br",
-                                        "Accept-Language" to "en-US,en;q=0.9",
-                                        "Connection" to "keep-alive",
-                                        "Host" to "master-es.cyou",
-                                        "Origin" to "https://hentaila.tv",
-                                        "Sec-Fetch-Dest" to "empty",
-                                        "Sec-Fetch-Mode" to "cors",
-                                        "Sec-Fetch-Site" to "cross-site",
-                                        "User-Agent" to USER_AGENT,
-                                        "sec-ch-ua" to "\"Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Opera\";v=\"102\"",
-                                        "sec-ch-ua-mobile" to "?0"
-                                )
-                        ).forEach(callback)
-                    }
-                }
+            val bodyText = player.body.string()
+                    .substringAfter("<body>")
+                    .substringBefore("</body>")
+                    .trim()
+            callback.invoke(
+                    ExtractorLink(
+                            this.name,
+                            "Prueba Json",
+                            bodyText,
+                            referer = "",
+                            quality = Qualities.Unknown.value
+                    )
+            )
+
+            parseJson<HlsJson>(bodyTextbodyTextbodyTextbodyText).data.sources.apmap { hls ->
+                generateM3u8(
+                        this.name,
+                        hls.src?.replace("&amp;", "&") ?: "",
+                        "",
+                        headers = mapOf(
+                                "Accept" to "*/*",
+                                "Accept-Encoding" to "gzip, deflate, br",
+                                "Accept-Language" to "en-US,en;q=0.9",
+                                "Connection" to "keep-alive",
+                                "Host" to "master-es.cyou",
+                                "Origin" to "https://hentaila.tv",
+                                "Sec-Fetch-Dest" to "empty",
+                                "Sec-Fetch-Mode" to "cors",
+                                "Sec-Fetch-Site" to "cross-site",
+                                "User-Agent" to USER_AGENT,
+                                "sec-ch-ua" to "\"Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Opera\";v=\"102\"",
+                                "sec-ch-ua-mobile" to "?0"
+                        )
+                ).forEach(callback)
             }
         }
         return true
