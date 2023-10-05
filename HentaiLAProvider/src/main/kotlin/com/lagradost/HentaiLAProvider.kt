@@ -122,7 +122,7 @@ class HentaiLAProvider : MainAPI() {
             val b = script.data().substringAfter("'b', '").substringBefore("'")
 
             val formBody = FormBody.Builder()
-                    .add("action", "zarat_get_data_player_ajax")
+                    .add("action", action)
                     .add("a", a)
                     .add("b", b)
                     .build()
@@ -141,15 +141,6 @@ class HentaiLAProvider : MainAPI() {
                     .substringAfter("<body>")
                     .substringBefore("</body>")
                     .trim()
-            callback.invoke(
-                    ExtractorLink(
-                            this.name,
-                            "Prueba Json",
-                            bodyText,
-                            referer = "",
-                            quality = Qualities.Unknown.value
-                    )
-            )
 
             parseJson<HlsJson>(bodyText).data.sources.apmap { hls ->
                 generateM3u8(
