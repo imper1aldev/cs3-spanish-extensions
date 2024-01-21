@@ -382,7 +382,7 @@ class YomirollProvider : MainAPI() {
             headers = mapOf(
                 "User-Agent" to "Crunchyroll/3.26.1 Android/11 okhttp/4.9.2",
                 "Content-Type" to "application/x-www-form-urlencoded",
-                "Authorization" to "Basic a3ZvcGlzdXZ6Yy0teG96Y21kMXk6R21JSTExenVPVnRnTjdlSWZrSlpibzVuLTRHTlZ0cU8="
+                "Authorization" to "Basic b2VkYXJteHN0bGgxanZhd2ltbnE6OWxFaHZIWkpEMzJqdVY1ZFc5Vk9TNTdkb3BkSnBnbzE="
             ),
             data = mapOf(
                 "refresh_token" to refreshToken,
