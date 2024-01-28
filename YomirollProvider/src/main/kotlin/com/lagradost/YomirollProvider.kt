@@ -5,6 +5,7 @@ import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.M3u8Helper
+import com.lagradost.nicehttp.requestCreator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -12,6 +13,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import okhttp3.Request
 
 class YomirollProvider : MainAPI() {
 
@@ -25,7 +27,8 @@ class YomirollProvider : MainAPI() {
     override val hasMainPage = true
     override val hasChromecastSupport = true
     override val hasDownloadSupport = true
-    private val tokenUtils = TokenUtils()
+    //private val tokenUtils = TokenUtils()
+    private val tokenInterceptor by lazy { TokenUtils() }
 
     private fun parseDate(dateStr: String): Long {
         return runCatching { DateFormatter.parse(dateStr)?.time }.getOrNull() ?: 0L
@@ -59,7 +62,7 @@ class YomirollProvider : MainAPI() {
         val url = request.data.replace("{start}", start)
         val position = request.data.toHttpUrl().queryParameter("start")?.toIntOrNull() ?: 0
 
-        val parsed = app.get(url, headers = tokenUtils.getCrunchyrollToken()).parsed<AnimeResult>()
+        val parsed = app.get(url, interceptor = tokenInterceptor).parsed<AnimeResult>()
         val hasNextPage = position + 36 < parsed.total
 
         val home = parsed.data.map {
@@ -82,7 +85,7 @@ class YomirollProvider : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/?s=$query"
-        val soup = app.get(url).document
+        val soup = app.get(url, interceptor = tokenInterceptor).document
         return soup.select(".ml-item").map {
             val title = it.select("a .mli-info h2").text()
             val poster = it.select("a img").attr("data-original")
@@ -109,7 +112,7 @@ class YomirollProvider : MainAPI() {
             } else {
                 "$crApiUrl/cms/movie_listings/${anime.id}?locale=en-US"
             },
-            headers = tokenUtils.getCrunchyrollToken()
+            interceptor = tokenInterceptor
         ).parsed<AnimeResult>().data.first()
 
         val title = anime.title
@@ -162,7 +165,7 @@ class YomirollProvider : MainAPI() {
             } else {
                 "$crApiUrl/cms/movie_listings/${anime.id}/movies"
             },
-            headers = tokenUtils.getCrunchyrollToken()
+            interceptor = tokenInterceptor
         ).parsed<SeasonResult>()
 
         val chunkSize = Runtime.getRuntime().availableProcessors()
@@ -196,7 +199,7 @@ class YomirollProvider : MainAPI() {
     private suspend fun getEpisodes(seasonData: SeasonResult.Season): List<Episode> {
         val episodes = app.get(
             "$crApiUrl/cms/seasons/${seasonData.id}/episodes",
-                headers = tokenUtils.getCrunchyrollToken()
+            interceptor = tokenInterceptor
         ).parsed<EpisodeResult>()
         return episodes.data.sortedBy { it.episode_number }.mapNotNull EpisodeMap@{ ep ->
             Episode(
@@ -264,8 +267,8 @@ class YomirollProvider : MainAPI() {
             val (mediaId, audioL) = it
             val streams = app.get(
                 "https://beta-api.crunchyroll.com/content/v2/cms/videos/$mediaId/streams",
-                headers = tokenUtils.getCrunchyrollToken(),
-                timeout = 20000
+                interceptor = tokenInterceptor,
+                timeout = 30000
             ).parsedSafe<CrunchyrollSourcesResponses>()
 
             val audLang = audioL.ifBlank { streams?.meta?.audio_locale } ?: "ja-JP"
@@ -309,6 +312,10 @@ class YomirollProvider : MainAPI() {
         }
 
         return true
+    }
+
+    private fun getVideoRequest(mediaId: String): Request {
+        return requestCreator("GET", "$crUrl/cms/v2{0}/videos/$mediaId/streams?Policy={1}&Signature={2}&Key-Pair-Id={3}",)
     }
 
     companion object {

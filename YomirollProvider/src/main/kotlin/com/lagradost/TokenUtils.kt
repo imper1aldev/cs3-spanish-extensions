@@ -4,7 +4,9 @@ import android.net.Uri
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.nicehttp.requestCreator
+import okhttp3.Interceptor
 import okhttp3.Request
+import okhttp3.Response
 import java.net.InetSocketAddress
 import java.net.PasswordAuthentication
 import java.net.*
@@ -12,7 +14,7 @@ import java.text.MessageFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class TokenUtils {
+class TokenUtils : Interceptor {
     private val crUrl = "https://beta-api.crunchyroll.com"
     private val crBasicToken = "b2VkYXJteHN0bGgxanZhd2ltbnE6OWxFaHZIWkpEMzJqdVY1ZFc5Vk9TNTdkb3BkSnBnbzE="
 
@@ -103,6 +105,16 @@ class TokenUtils {
     companion object {
         private val DATE_FORMATTER by lazy {
             SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ENGLISH)
+        }
+    }
+
+    override fun intercept(chain: Interceptor.Chain): Response {
+        synchronized(this) {
+            val refreshedToken = getAccessToken()
+            // Retry the request
+            return chain.proceed(
+                newRequestWithAccessToken(chain.request(), refreshedToken),
+            )
         }
     }
 }
